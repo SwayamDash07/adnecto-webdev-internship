@@ -1,0 +1,648 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&family=Space+Grotesk:wght@500;700&family=Archivo+Black&family=Courier+Prime:wght@400;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter', sans-serif;
+  background: var(--page-bg);
+  position: relative;
+  overflow: hidden;
+}
+
+/* ============================================================
+   THEME SWITCHER BAR
+   ============================================================ */
+
+.top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  position: relative;
+  z-index: 2;
+}
+
+.wordmark {
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.3px;
+  color: var(--text-soft);
+}
+
+.theme-row {
+  display: flex;
+  gap: 8px;
+}
+
+.theme-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.theme-swatch:active {
+  transform: scale(0.88);
+}
+
+.theme-swatch:focus-visible {
+  outline: 2px solid var(--text-soft);
+  outline-offset: 3px;
+}
+
+.swatch-glass { background: linear-gradient(135deg, #8b9eff 0%, #c490ff 50%, #ff9ecb 100%); }
+.swatch-paper { background: #c9774f; }
+.swatch-hacker { background: #39ff8c; }
+.swatch-brutalist { background: #e5332a; }
+.swatch-vintage { background: #4a5b4a; }
+
+.theme-swatch.active {
+  box-shadow: 0 0 0 2px var(--page-bg), 0 0 0 4px var(--text);
+}
+
+/* ============================================================
+   SHARED CALCULATOR SHELL (overridden heavily per theme)
+   ============================================================ */
+
+.calculator {
+  width: min(340px, 92vw);
+  padding: 26px;
+  border-radius: 32px;
+  background: var(--card-bg);
+  position: relative;
+  z-index: 1;
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.expression {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-soft);
+  text-align: right;
+  padding: 0 6px;
+  margin-bottom: 8px;
+  min-height: 1.2em;
+}
+
+.display {
+  background: var(--screen-bg);
+  color: var(--screen-text);
+  font-size: 2.1rem;
+  font-weight: 700;
+  padding: 22px;
+  margin-bottom: 20px;
+  border-radius: 18px;
+  text-align: right;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+  position: relative;
+}
+
+.display::-webkit-scrollbar {
+  display: none;
+}
+
+.keys {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.key {
+  height: 60px;
+  border: none;
+  border-radius: 16px;
+  font-size: 1.2rem;
+  font-weight: 600;
+  background: var(--key-bg);
+  color: var(--text);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.key:focus-visible {
+  outline: 2px solid var(--text-soft);
+  outline-offset: 2px;
+}
+
+.ghost { font-size: 1rem; }
+.clear { color: var(--clear-text); }
+.zero { grid-column: span 2; }
+
+.accent-op {
+  background: var(--key-bg);
+  color: var(--accent-op-text);
+}
+
+.accent-eq {
+  background: var(--key-bg);
+  color: var(--accent-eq-text);
+  grid-row: span 2;
+  height: 100%;
+  font-size: 1.5rem;
+}
+
+@media (max-width: 480px) {
+  .page { align-items: flex-start; padding-top: 48px; }
+  .calculator { width: 94vw; padding: 20px; }
+  .key { height: 54px; font-size: 1.1rem; }
+  .display { font-size: 1.8rem; padding: 20px 16px; }
+}
+
+/* ============================================================
+   THEME 1 — LIQUID GLASS (default)
+   Real iOS-style frosted glass: page != card != key opacity.
+   Signature: specular highlight sweep on key press.
+   ============================================================ */
+
+.page[data-theme="glass"] {
+  --page-bg: #e8e9ee;
+  --text: #1c1c1e;
+  --text-soft: rgba(28, 28, 30, 0.55);
+  --screen-text: #ffffff;
+  --clear-text: #ff453a;
+  --accent-op-text: #ffffff;
+  --accent-eq-text: #ffffff;
+  background: #e4e5ea;
+  font-family: 'Inter', sans-serif;
+}
+
+.page[data-theme="glass"] .glass-bg-blob {
+  position: absolute;
+  inset: -10%;
+  z-index: 0;
+  filter: blur(80px);
+  background:
+    radial-gradient(circle at 22% 25%, rgba(99, 130, 255, 0.55) 0%, transparent 38%),
+    radial-gradient(circle at 80% 20%, rgba(255, 138, 196, 0.5) 0%, transparent 40%),
+    radial-gradient(circle at 25% 80%, rgba(120, 230, 210, 0.45) 0%, transparent 40%),
+    radial-gradient(circle at 85% 82%, rgba(180, 150, 255, 0.5) 0%, transparent 42%);
+  animation: glass-drift 26s ease-in-out infinite alternate;
+}
+
+@keyframes glass-drift {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(-3%, 3%) scale(1.08); }
+}
+
+.page[data-theme="glass"] .calculator {
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.page[data-theme="glass"] .display {
+  background: rgba(0, 0, 0, 0.30);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.page[data-theme="glass"] .key {
+  --key-bg: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  text-shadow: none;
+  transition: transform 0.12s ease, background 0.2s ease;
+}
+
+.page[data-theme="glass"] .key::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  transform: skewX(-20deg);
+  transition: left 0.5s ease;
+  pointer-events: none;
+}
+
+.page[data-theme="glass"] .key:active {
+  transform: scale(0.96);
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.page[data-theme="glass"] .key:active::before {
+  left: 130%;
+}
+
+.page[data-theme="glass"] .accent-op {
+  --key-bg: rgba(90, 110, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: #ffffff;
+}
+
+.page[data-theme="glass"] .accent-eq {
+  --key-bg: rgba(40, 200, 170, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: #ffffff;
+}
+
+.page[data-theme="glass"] .theme-swatch {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+
+.page[data-theme="glass"] .theme-swatch.active {
+  box-shadow: 0 0 0 2px rgba(232, 233, 238, 0.9), 0 0 0 4px rgba(28, 28, 30, 0.7);
+}
+
+/* ============================================================
+   THEME 2 — PAPER RECEIPT
+   Page (desk) != Card (receipt paper) != Keys (plastic buttons).
+   Signature: scrolling printed tape history.
+   ============================================================ */
+
+.page[data-theme="paper"] {
+  --page-bg: #5b5247;
+  --text: #2b2620;
+  --text-soft: #8a7f6f;
+  --screen-text: #2b2620;
+  --clear-text: #a3372a;
+  --accent-op-text: #fdf8ee;
+  --accent-eq-text: #fdf8ee;
+  background-color: var(--page-bg);
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.18)),
+    url('/wood-texture.png');
+  background-blend-mode: multiply;
+  background-size: cover;
+  background-position: center;
+  font-family: 'Courier Prime', monospace;
+}
+
+.page[data-theme="paper"] .calculator {
+  background: #f4ecd9;
+  background-image: repeating-linear-gradient(180deg, rgba(0,0,0,0.015) 0px, rgba(0,0,0,0.015) 1px, transparent 1px, transparent 3px);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35), 0 2px 0 rgba(255, 255, 255, 0.5) inset;
+  border-radius: 4px 4px 18px 18px;
+}
+
+.page[data-theme="paper"] .wordmark {
+  font-family: 'Courier Prime', monospace;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.page[data-theme="paper"] .expression {
+  font-family: 'Courier Prime', monospace;
+  color: #9a8c74;
+}
+
+.page[data-theme="paper"] .display {
+  background: #fbf6e9;
+  border: 1px dashed #c9b896;
+  border-radius: 2px;
+  color: #2b2620;
+  font-family: 'Courier Prime', monospace;
+  font-weight: 700;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.page[data-theme="paper"] .display::after {
+  content: "";
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  right: 0;
+  height: 8px;
+  background: repeating-linear-gradient(-45deg, #fbf6e9 0 5px, transparent 5px 10px);
+}
+
+.tape {
+  display: none;
+}
+
+.page[data-theme="paper"] .tape {
+  display: block;
+  margin-bottom: 10px;
+  padding: 0 6px;
+  max-height: 88px;
+  overflow: hidden;
+  font-family: 'Courier Prime', monospace;
+  font-size: 0.78rem;
+  color: #9a8c74;
+  opacity: 0.85;
+}
+
+.page[data-theme="paper"] .tape-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+  border-bottom: 1px dotted #d3c4a4;
+  animation: tape-print 0.25s ease;
+}
+
+.page[data-theme="paper"] .tape-expr {
+  opacity: 0.8;
+}
+
+.page[data-theme="paper"] .tape-result {
+  font-weight: 700;
+  color: #6b5d44;
+}
+
+@keyframes tape-print {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.page[data-theme="paper"] .key {
+  --key-bg: #ddccaa;
+  border-radius: 9px;
+  border-bottom: 3px solid #b6a47e;
+  box-shadow: 0 3px 0 #b6a47e, 0 4px 8px rgba(0, 0, 0, 0.2);
+  font-family: 'Courier Prime', monospace;
+  font-weight: 700;
+  color: #3a3327;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+
+.page[data-theme="paper"] .key:active {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 #b6a47e, 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.page[data-theme="paper"] .accent-op {
+  --key-bg: #a3372a;
+  border-bottom: 3px solid #7c281e;
+  box-shadow: 0 3px 0 #7c281e, 0 4px 8px rgba(0, 0, 0, 0.25);
+}
+
+.page[data-theme="paper"] .accent-op:active {
+  box-shadow: 0 0 0 #7c281e, 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.page[data-theme="paper"] .accent-eq {
+  --key-bg: #2f5d3a;
+  border-bottom: 3px solid #1f4027;
+  box-shadow: 0 3px 0 #1f4027, 0 4px 8px rgba(0, 0, 0, 0.25);
+}
+
+.page[data-theme="paper"] .accent-eq:active {
+  box-shadow: 0 0 0 #1f4027, 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.page[data-theme="paper"] .theme-swatch.active {
+  box-shadow: 0 0 0 2px #5b5247, 0 0 0 4px #f4ecd9;
+}
+
+/* ============================================================
+   THEME 3 — HACKER TERMINAL
+   Page (void) != Card (bezel) != Keys (flat dark).
+   Signature: scanlines + blinking cursor on display.
+   ============================================================ */
+
+.page[data-theme="hacker"] {
+  --page-bg: #030502;
+  --text: #c8ffd9;
+  --text-soft: #4f8f64;
+  --screen-text: #39ff8c;
+  --clear-text: #ff5c5c;
+  --accent-op-text: #030502;
+  --accent-eq-text: #030502;
+  background: var(--page-bg);
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.page[data-theme="hacker"] .calculator {
+  background: #0c1410;
+  border: 1px solid #1c3826;
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px #08120c, 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(57, 255, 140, 0.05);
+}
+
+.page[data-theme="hacker"] .wordmark {
+  font-family: 'IBM Plex Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #4f8f64;
+}
+
+.page[data-theme="hacker"] .wordmark::after {
+  content: "_";
+  animation: blink 1s step-end infinite;
+}
+
+.page[data-theme="hacker"] .expression {
+  font-family: 'IBM Plex Mono', monospace;
+  color: #2f6b42;
+}
+
+.page[data-theme="hacker"] .display {
+  background: #010301;
+  border: 1px solid #163322;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  text-shadow: 0 0 8px rgba(57, 255, 140, 0.6);
+  box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.8);
+}
+
+.page[data-theme="hacker"] .display::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(57, 255, 140, 0.04) 0px,
+    rgba(57, 255, 140, 0.04) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+.page[data-theme="hacker"] .display::after {
+  content: "▮";
+  margin-left: 6px;
+  animation: blink 1s step-end infinite;
+  font-size: 1.6rem;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+.page[data-theme="hacker"] .key {
+  --key-bg: #0e1a13;
+  border: 1px solid #1c3826;
+  border-radius: 6px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
+  color: #9be8af;
+  transition: background 0.1s ease, border-color 0.1s ease;
+}
+
+.page[data-theme="hacker"] .key:active {
+  background: #163322;
+  border-color: #39ff8c;
+}
+
+.page[data-theme="hacker"] .clear {
+  border-color: #4a1d1d;
+}
+
+.page[data-theme="hacker"] .accent-op {
+  --key-bg: #1c3826;
+  color: #39ff8c;
+  border: 1px solid #39ff8c;
+}
+
+.page[data-theme="hacker"] .accent-op:active {
+  background: #39ff8c;
+  color: #030502;
+}
+
+.page[data-theme="hacker"] .accent-eq {
+  --key-bg: #39ff8c;
+  color: #030502;
+  border: 1px solid #39ff8c;
+  box-shadow: 0 0 18px rgba(57, 255, 140, 0.35);
+}
+
+.page[data-theme="hacker"] .accent-eq:active {
+  background: #9be8af;
+}
+
+.page[data-theme="hacker"] .theme-swatch.active {
+  box-shadow: 0 0 0 2px #030502, 0 0 0 4px #39ff8c;
+}
+
+/* THEME 5 — VINTAGE SCIENTIFIC (TI/HP style) */
+
+.page[data-theme="vintage"] {
+  background-color: var(--page-bg);
+  --text: #2e2c26;
+  --text-soft: #6e6657;
+  --screen-text: #1c2b1f;
+  --clear-text: #8a3b2e;
+  --accent-op-text: #f3efe3;
+  --accent-eq-text: #f3efe3;
+  background: var(--page-bg);
+  background-image: linear-gradient(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.18)), url('/vintage.jpg');
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.page[data-theme="vintage"] .calculator {
+  background: #aba596;
+  border-radius: 14px 14px 22px 22px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -2px 6px rgba(0,0,0,0.15);
+}
+
+.page[data-theme="vintage"] .wordmark {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  color: #54503f;
+}
+
+.page[data-theme="vintage"] .expression {
+  font-family: 'JetBrains Mono', monospace;
+  color: #6e6657;
+}
+
+.page[data-theme="vintage"] .display {
+  background: #9cab93;
+  border-radius: 4px;
+  border: 2px solid #6b7763;
+  box-shadow: inset 0 3px 10px rgba(0, 0, 0, 0.25);
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #1c2b1f;
+  text-shadow: 0 0 1px rgba(28, 43, 31, 0.4);
+}
+
+.vintage-display-stack {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.vintage-ghost {
+  color: rgba(28, 43, 31, 0.13);
+  pointer-events: none;
+}
+
+.vintage-real {
+  color: #1c2b1f;
+}
+
+.page[data-theme="vintage"] .key {
+  --key-bg: #d6d2c4;
+  border-radius: 5px;
+  border: 1px solid #8e8874;
+  border-bottom: 3px solid #7c765f;
+  box-shadow: 0 2px 0 #8e8874, inset 0 1px 0 rgba(255,255,255,0.5);
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  color: #2e2c26;
+  transition: transform 0.08s ease;
+}
+
+.page[data-theme="vintage"] .key:active {
+  transform: translateY(2px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.3);
+}
+
+.page[data-theme="vintage"] .clear {
+  --key-bg: #8a5a4a;
+  color: #f3efe3;
+  border-bottom: 3px solid #6b4337;
+}
+
+.page[data-theme="vintage"] .accent-op {
+  --key-bg: #4a5b4a;
+  border: 1px solid #364434;
+  border-bottom: 3px solid #364434;
+}
+
+.page[data-theme="vintage"] .accent-eq {
+  --key-bg: #35453a;
+  border: 1px solid #232f27;
+  border-bottom: 3px solid #232f27;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.page[data-theme="vintage"] .theme-swatch.active {
+  box-shadow: 0 0 0 2px #cdbfa3, 0 0 0 4px #2e2c26;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page[data-theme="glass"],
+  .wordmark::after,
+  .display::after {
+    animation: none !important;
+  }
+}

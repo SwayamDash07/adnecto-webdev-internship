@@ -1,0 +1,158 @@
+@import url('https://fonts.googleapis.com/css2?family=Ms+Madi&display=swap');
+
+.headertext{
+    font-family: 'Ms Madi', cursive;
+    font-size: 90px;
+    color: white;
+    text-align: center;
+    font-weight: 400;
+}
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+.headertext{
+    font-family: 'Ms Madi', cursive;
+    font-size: 100px;
+    color: rgb(0, 139, 46);
+
+    width: fit-content;
+    overflow: hidden;
+    white-space: nowrap;
+    border-right: 3px solid white;
+
+    animation:
+        typing 3s steps(20, end),
+        blink 0.8s infinite;
+}
+
+@keyframes typing{
+    from{
+        width: 0;
+    }
+    to{
+        width: 100%;
+    }
+}
+
+@keyframes blink{
+    50%{
+        border-color: transparent;
+    }
+}
+
+body{
+    background:#121212;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-start;
+    align-items:center;
+    padding:40px 20px;
+    font-family:Arial,sans-serif;
+}
+
+.gallery{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:15px;
+    width:100%;
+    max-width:1000px;
+}
+
+.gallery img{
+    width:100%;
+    aspect-ratio:1/1;
+    object-fit:cover;
+    border-radius:12px;
+    border:2px solid #2a2a2a;
+    cursor:pointer;
+    transition:0.3s;
+}
+
+.gallery img:hover{
+    transform:scale(1.03);
+}
+
+.lightbox{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.9);
+    justify-content:center;
+    align-items:center;
+    z-index:1000;
+}
+
+.lightbox.open{
+    display:flex;
+}
+
+.lightbox img{
+    max-width:90%;
+    max-height:90%;
+    border-radius:15px;
+}
+
+.close{
+    position:absolute;
+    top:20px;
+    right:30px;
+    color:white;
+    font-size:40px;
+    cursor:pointer;
+    text-decoration:none;
+    line-height:1;
+}
+
+@media(max-width:768px){
+    .gallery{
+        grid-template-columns:repeat(2,1fr);
+    }
+}
+
+#prev,
+#next{
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 60px;
+    color: white;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    z-index: 2000;
+}
+
+#prev{
+    left: 40px;
+}
+
+#next{
+    right: 40px;
+}
+
+#thumbnail-strip{
+    position:absolute;
+    bottom:20px;
+    display:flex;
+    gap:10px;
+    max-width:90%;
+    overflow-x:auto;
+}
+
+#thumbnail-strip img{
+    width:60px;
+    height:60px;
+    object-fit:cover;
+    border-radius:8px;
+    cursor:pointer;
+    opacity:0.6;
+}
+
+#thumbnail-strip img.active{
+    opacity:1;
+    border:2px solid white;
+}
