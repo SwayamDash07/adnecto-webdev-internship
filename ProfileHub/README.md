@@ -2,6 +2,8 @@
 
 A personal profile dashboard built with **Next.js (App Router)**, **MongoDB/Mongoose**, and **Server Actions only** — no API routes, no client-side `fetch`. Built during my internship at Adnecto Technologies.
 
+Live URL- https://profile-hub-ivory.vercel.app/
+
 ## What it is
 
 Signup/login system plus a LinkedIn/GitHub-style profile dashboard where users edit their own bio, skills, experience, education, and projects. Started as an admin dashboard, pivoted to a personal-profile format per supervisor feedback.
