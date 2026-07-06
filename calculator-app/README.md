@@ -1,33 +1,25 @@
-# Calculator
+# Calculator App
 
-A simple calculator built with Next.js (App Router). Supports digits 0–9, decimal point, addition, subtraction, multiplication, division, clear, and backspace. Works with mouse/touch clicks or your keyboard.
+A calculator built with **Next.js**, featuring 4 distinct visual themes: **Liquid Glass**, **Paper Receipt**, **Terminal**, and **Vintage**. Theme choice persists across sessions via `localStorage`.
 
-## Run it locally
+Live URL- https://calculator-app-peach-one.vercel.app/
 
+## Stack
+- Next.js (client component, `useState`/`useEffect`)
+- Plain CSS per theme
+
+## Features
+- Standard arithmetic operations with a running calculation tape
+- Result formatting caps output at 12 digits, gracefully returns "Error" on overflow
+- Theme switcher with 4 fully distinct visual styles, remembered between visits
+
+## What I learned
+- Managing calculator state (current value, previous value, pending operator, overwrite mode) cleanly in React without a state library
+- Handling floating-point precision and digit-limit edge cases in the result formatter
+- Building multiple cohesive visual themes for the same component structure, swapped via a single state value plus CSS
+
+## Running locally
 ```bash
 npm install
 npm run dev
 ```
-
-Then open http://localhost:3000 in your browser.
-
-## Project structure
-
-```
-app/
-  layout.js        # root layout, loads fonts
-  page.js           # calculator component + logic
-  page.module.css   # calculator styles
-  globals.css       # base reset + color tokens
-package.json
-next.config.mjs
-```
-
-## Keyboard shortcuts
-
-- `0`–`9` — digits
-- `.` — decimal point
-- `+` `-` `*` `/` — operators
-- `Enter` or `=` — equals
-- `Backspace` — delete last digit
-- `Esc` — clear
