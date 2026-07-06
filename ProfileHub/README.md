@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ProfileHub
 
-## Getting Started
+A personal profile dashboard built with **Next.js (App Router)**, **MongoDB/Mongoose**, and **Server Actions only** — no API routes, no client-side `fetch`. Built during my internship at Adnecto Technologies.
 
-First, run the development server:
+## What it is
+
+Signup/login system plus a LinkedIn/GitHub-style profile dashboard where users edit their own bio, skills, experience, education, and projects. Started as an admin dashboard, pivoted to a personal-profile format per supervisor feedback.
+
+## Stack
+
+- **Next.js 16** — App Router, Server Components + Server Actions
+- **MongoDB/Mongoose** — data storage
+- **bcryptjs** — password hashing
+- Plain CSS with custom properties for light/dark theming
+- Hosted on Vercel
+
+## Key decisions
+
+**Server Actions only** — every form (login, signup, profile edits, password change) submits via `<form action={serverFunction}>`. No `/api/*` routes anywhere. UI toggles (edit mode, nav menu) run through URL params or CSS `:checked` selectors instead of React state. Only exception: CSS hover/load animations, which are inherently browser-side.
+
+**Sessions** — a random token (`crypto.randomBytes`) is stored on the user's MongoDB document and sent to the browser as an `httpOnly` cookie. Each request checks whether a user in the database matches that token.
+
+**Route protection, two layers** — middleware blocks `/dashboard/*` with no session cookie; `requireUser()` then confirms the cookie's token matches a real user in the DB.
+
+## Features
+
+- Signup with server-side validation (10-digit phone, `@gmail.com` only, DOB can't be future, unique username/email)
+- Profile dashboard: bio, skills, experience — plus optional Education/Projects sections (LinkedIn-style, hidden until populated)
+- Settings: edit personal info, change password (requires current password verified via `bcrypt.compare`)
+- Light/dark theme via cookie + CSS variables, no JS
+
+## What I learned
+
+- Server Actions vs. API routes, and the tradeoffs of going fully server-first
+- Mongoose schema defaults only apply on document creation, and a running dev server caches the compiled model (had to restart it more than once after schema changes)
+- Debugging via `console.log` + reading server output — caught a duplicated function, a wrong DB name, and a stale model this way
+- CSS-only interactivity (checkbox/label nav menu) and browser quirks with animating native `<details>`
+- Responsive layout fixes — why a fixed grid breaks on mobile, rebuilt as a stacked layout
+
+## Running locally
+
+```bash
+npm install
+```
+
+`.env.local`:
+```
+MONGODB_URI=mongodb://localhost:27017/authApp
+```
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
