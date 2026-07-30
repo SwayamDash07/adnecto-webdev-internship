@@ -1,0 +1,20 @@
+"use client";
+
+import { useState } from "react";
+import { updateUserFieldAction } from "../../actions";
+
+type UserValue = string | string[];
+type UserDetails = { _id: string; name: string; username: string; email: string; location: string; hobbies: string[]; interests: string[]; musicTaste: string; movieTaste: string; favoriteFood: string; bio: string; personalNote: string; avatarUrl: string };
+
+function PencilIcon() { return <svg viewBox="0 0 24 24" aria-hidden="true" className="admin-pencil"><path d="m4 16.5-.8 4.3 4.3-.8L19.8 7.7a2.2 2.2 0 0 0-3.1-3.1L4 16.5Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="m14.9 5.7 3.4 3.4" fill="none" stroke="currentColor" strokeWidth="1.8"/></svg>; }
+
+const fields: { key: keyof UserDetails; label: string; multiline?: boolean; list?: boolean; type?: string }[] = [
+  { key: "name", label: "Full name" }, { key: "username", label: "Username" }, { key: "email", label: "Email", type: "email" },
+  { key: "location", label: "Location" }, { key: "avatarUrl", label: "Avatar URL", type: "url" }, { key: "hobbies", label: "Hobbies", list: true }, { key: "interests", label: "Interests", list: true },
+  { key: "musicTaste", label: "Music" }, { key: "movieTaste", label: "Movies / shows" }, { key: "favoriteFood", label: "Favorite food" }, { key: "bio", label: "Bio", multiline: true }, { key: "personalNote", label: "Personal note", multiline: true },
+];
+
+export default function UserDetailsEditor({ user }: { user: UserDetails }) {
+  const [editing, setEditing] = useState<string | null>(null);
+  return <div className="admin-detail-editor"><div className="admin-detail-editor-header"><div><h2>{user.name}</h2><p className="admin-muted">@{user.username} · {user.email}</p></div><div className="admin-user-avatar">{user.name.slice(0, 1).toUpperCase()}</div></div><div className="admin-detail-list">{fields.map((field) => { const current = user[field.key] as UserValue; const display = Array.isArray(current) ? current.join(", ") : current || "Not provided"; const isEditing = editing === field.key; return <div className={`admin-detail-row${isEditing ? " is-editing" : ""}`} key={field.key}><div className="admin-detail-copy"><span>{field.label}</span>{isEditing ? <form action={updateUserFieldAction} className="admin-inline-edit"><input type="hidden" name="userId" value={user._id} /><input type="hidden" name="field" value={field.key} />{field.multiline ? <textarea name="value" className="admin-textarea" defaultValue={Array.isArray(current) ? current.join(", ") : current} autoFocus /> : <input name="value" type={field.type || "text"} className="admin-input" defaultValue={Array.isArray(current) ? current.join(", ") : current} autoFocus /> }<div className="admin-inline-actions"><button type="submit" className="admin-button small">Save</button><button type="button" className="admin-button secondary small" onClick={() => setEditing(null)}>Cancel</button></div></form> : <strong>{display}</strong>}</div>{!isEditing && <button type="button" className="admin-icon-button" aria-label={`Edit ${field.label}`} onClick={() => setEditing(field.key)}><PencilIcon /></button>}</div>; })}<div className="admin-detail-row"><div className="admin-detail-copy"><span>Password</span><strong>••••••••</strong></div><button type="button" className="admin-icon-button" aria-label="Edit password" onClick={() => setEditing("password")}><PencilIcon /></button></div>{editing === "password" && <div className="admin-detail-password"><form action={updateUserFieldAction} className="admin-inline-edit"><input type="hidden" name="userId" value={user._id} /><input type="hidden" name="field" value="password" /><label htmlFor="user-new-password">New password</label><input id="user-new-password" name="value" type="password" className="admin-input" minLength={8} required autoFocus /><div className="admin-inline-actions"><button type="submit" className="admin-button small">Save</button><button type="button" className="admin-button secondary small" onClick={() => setEditing(null)}>Cancel</button></div></form></div>}</div></div>;
+}
