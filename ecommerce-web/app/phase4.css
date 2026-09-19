@@ -1,0 +1,5 @@
+.cart-thumb .product-photo{width:100%;height:100%;object-fit:cover;border-radius:8px}
+.gallery-thumbnails{display:flex;gap:8px;margin-top:12px;overflow:auto}
+.gallery-thumbnails button{width:58px;height:58px;padding:3px;border:1px solid var(--line);background:#fff;border-radius:6px}
+.gallery-thumbnails button.selected{border-color:var(--purple)}
+.gallery-thumbnails img{width:100%;height:100%;object-fit:cover;border-radius:4px}

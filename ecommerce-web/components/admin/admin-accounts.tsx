@@ -1,0 +1,19 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+
+type Admin = { id: string; email: string; full_name: string; role_name: string }
+const roles = ['super_admin', 'store_manager', 'inventory_manager', 'accountant', 'picker', 'delivery_boy', 'cashier']
+
+export function AdminAccounts() {
+  const [admins, setAdmins] = useState<Admin[]>([])
+  const [form, setForm] = useState({ email: '', fullName: '', password: '', role: 'store_manager' })
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+  async function load() { const response = await fetch('/api/admin/admins', { cache: 'no-store' }); if (response.ok) setAdmins(await response.json() as Admin[]); else setError((await response.json()).error || 'Unable to load administrator accounts.') }
+  useEffect(() => { void load() }, [])
+  async function createAdmin() { setMessage(''); setError(''); const response = await fetch('/api/admin/admins', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(form) }); const result = await response.json(); if (!response.ok) return setError(result.error || 'Unable to create administrator.'); setForm({ email: '', fullName: '', password: '', role: 'store_manager' }); setMessage('Administrator added.'); await load() }
+  async function updateAdmin(admin: Admin) { const fullName = window.prompt('Name', admin.full_name) ?? admin.full_name; const password = window.prompt('New password (leave blank to keep current password)', '') || undefined; const response = await fetch('/api/admin/admins', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: admin.id, fullName, role: admin.role_name, password }) }); const result = await response.json(); if (!response.ok) setError(result.error || 'Unable to update administrator.'); else { setMessage('Administrator updated.'); await load() } }
+  async function removeAdmin(admin: Admin) { if (!window.confirm(`Delete ${admin.email}? This also disables their login.`)) return; const response = await fetch(`/api/admin/admins?id=${encodeURIComponent(admin.id)}`, { method: 'DELETE' }); const result = await response.json(); if (!response.ok) setError(result.error || 'Unable to delete administrator.'); else { setMessage('Administrator deleted.'); await load() } }
+  return <section className="panel admin-accounts"><div className="panel-heading"><div><h2>Administrator accounts</h2><p>The main administrator can add staff, change names or passwords, and remove access.</p></div></div><div className="form-grid"><label>Full name<input value={form.fullName} onChange={event => setForm({ ...form, fullName: event.target.value })} /></label><label>Email<input type="email" value={form.email} onChange={event => setForm({ ...form, email: event.target.value })} /></label><label>Temporary password<input type="password" value={form.password} onChange={event => setForm({ ...form, password: event.target.value })} /></label><label>Role<select value={form.role} onChange={event => setForm({ ...form, role: event.target.value })}>{roles.map(role => <option key={role} value={role}>{role.replaceAll('_', ' ')}</option>)}</select></label></div><button className="primary-button" onClick={() => void createAdmin()}>Add administrator</button>{message && <p className="success-message">{message}</p>}{error && <p className="low-stock">{error}</p>}<div className="admin-list">{admins.map(admin => <div className="admin-row" key={admin.id}><span><strong>{admin.full_name || 'Unnamed admin'}</strong><small>{admin.email}</small></span><em>{admin.role_name.replaceAll('_', ' ')}</em><button className="secondary-button" onClick={() => void updateAdmin(admin)}>Edit</button><button className="secondary-button" onClick={() => void removeAdmin(admin)}>Delete</button></div>)}</div></section>
+}

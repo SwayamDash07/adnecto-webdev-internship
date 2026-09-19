@@ -1,0 +1,45 @@
+.sidebar-user {
+  margin: -18px 0 24px;
+  padding: 13px;
+  border: 1px solid #293452;
+  border-radius: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sidebar-user strong,
+.sidebar-user small {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-user strong {
+  color: #fff;
+  font-size: 13px;
+  margin-bottom: 5px;
+}
+
+.sidebar-user small {
+  color: #aeb8d2;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.admin-content,
+.admin-top,
+.admin-top > div {
+  min-width: 0;
+}
+
+.admin-top h1 {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 680px) {
+  .sidebar-user {
+    display: none;
+  }
+}
