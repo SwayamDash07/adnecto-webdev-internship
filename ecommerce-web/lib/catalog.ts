@@ -1,6 +1,6 @@
 import type { Product } from '@/lib/types'
 
-export type CatalogCategory = { id: number; name: string; slug: string }
+export type CatalogCategory = { id: number; name: string; slug: string; parent_id?: number | null; sort_order?: number }
 
 export type CatalogRow = {
   id: number
@@ -21,11 +21,20 @@ export type CatalogRow = {
   brands: { name: string } | { name: string }[] | null
   product_images: { storage_path: string; alt_text: string | null; sort_order: number }[] | null
   inventory: { current_stock: number } | { current_stock: number }[] | null
+  product_variants?: { id: number; name: string; sku: string | null; price: number; weight: number | null; stock?: number }[] | null
+  product_type?: Product['productType']
+  weight?: number | null
+  ingredients?: string | null
+  nutrition?: Record<string, unknown> | null
+  is_organic?: boolean
+  is_vegetarian?: boolean
+  is_gluten_free?: boolean
+  video_url?: string | null
 }
 
 function relation<T>(value: T | T[] | null) { return Array.isArray(value) ? value[0] ?? null : value }
 
-export function mapCatalogProduct(row: CatalogRow): Product {
+export function mapCatalogProduct(row: CatalogRow, publicStock?: number): Product {
   const category = relation(row.categories)
   const brand = relation(row.brands)
   const inventory = relation(row.inventory)
@@ -53,13 +62,23 @@ export function mapCatalogProduct(row: CatalogRow): Product {
     imageUrl: images[0]?.storage_path,
     gallery: images.slice(1).map(image => image.storage_path),
     details,
-    stock: Number(inventory?.current_stock ?? 0),
+    stock: publicStock ?? Number(inventory?.current_stock ?? 0),
     sku: row.sku ?? undefined,
     barcode: row.barcode ?? undefined,
     brand: brand?.name,
     gst: Number(row.gst ?? 0),
     hsn: row.hsn ?? undefined,
     description: row.description ?? undefined,
+    variants: row.product_variants?.map(variant => variant.name),
+    variantDetails: row.product_variants?.map(variant => ({ id: variant.id, name: variant.name, sku: variant.sku ?? undefined, price: Number(variant.price), weight: variant.weight ?? undefined, ...(variant.stock == null ? {} : { stock: Number(variant.stock) }) })),
+    productType: row.product_type,
+    weight: row.weight ?? undefined,
+    ingredients: row.ingredients ?? undefined,
+    nutrition: row.nutrition ?? undefined,
+    isOrganic: row.is_organic ?? false,
+    isVegetarian: row.is_vegetarian ?? false,
+    isGlutenFree: row.is_gluten_free ?? false,
+    videoUrl: row.video_url ?? undefined,
   }
 }
 
@@ -68,5 +87,5 @@ export function categoryFromSlug(slug: string) {
 }
 
 export function catalogSelect() {
-  return 'id,name,sku,barcode,description,mrp,selling_price,rating,review_count,gst,hsn,country_of_origin,attributes,is_active,categories(name,slug),brands(name),product_images(storage_path,alt_text,sort_order),inventory(current_stock)'
+  return 'id,name,sku,barcode,description,mrp,selling_price,rating,review_count,gst,hsn,country_of_origin,attributes,is_active,product_type,weight,ingredients,nutrition,is_organic,is_vegetarian,is_gluten_free,video_url,categories(name,slug),brands(name),product_images(storage_path,alt_text,sort_order),product_variants(id,name,sku,price,weight)'
 }

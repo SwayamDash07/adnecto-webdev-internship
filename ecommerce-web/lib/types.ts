@@ -20,6 +20,15 @@ export type Product = {
   hsn?: string
   description?: string
   variants?: string[]
+  variantDetails?: Array<{ id: number; name: string; sku?: string; price: number; weight?: number; stock?: number }>
+  productType?: 'simple' | 'variable' | 'loose_weight' | 'combo' | 'subscription' | 'gift_pack'
+  weight?: number
+  ingredients?: string
+  nutrition?: Record<string, unknown>
+  isOrganic?: boolean
+  isVegetarian?: boolean
+  isGlutenFree?: boolean
+  videoUrl?: string
 }
 
 export type Address = { id: number; label: string; recipient: string; line: string; city: string; postalCode: string; selected?: boolean }

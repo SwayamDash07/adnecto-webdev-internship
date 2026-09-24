@@ -10,15 +10,13 @@ export async function POST(request: Request) {
   const expectedSignature = crypto.createHmac('sha256', webhookSecret).update(rawBody).digest('hex')
   const expected = Buffer.from(expectedSignature); const received = Buffer.from(receivedSignature)
   if (expected.length !== received.length || !crypto.timingSafeEqual(expected, received)) return NextResponse.json({ error: 'INVALID_WEBHOOK_SIGNATURE' }, { status: 400 })
-  const payload = JSON.parse(rawBody) as { event?: string; payload?: { payment?: { entity?: { order_id?: string; id?: string; status?: string } }; order?: { entity?: { id?: string; notes?: { cartly_order_id?: string } } } } }
+  let payload: { event?: string; payload?: { payment?: { entity?: { order_id?: string; id?: string; status?: string } }; order?: { entity?: { id?: string; notes?: { cartly_order_id?: string } } } } }
+  try { payload = JSON.parse(rawBody) as typeof payload } catch { return NextResponse.json({ error: 'INVALID_WEBHOOK_BODY' }, { status: 400 }) }
   const payment = payload.payload?.payment?.entity
   if (!payment?.order_id || !payment.id) return NextResponse.json({ received: true })
   const client = createSupabaseAdminClient()
   if (!client) return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_NOT_CONFIGURED' }, { status: 503 })
-  const status = payload.event === 'payment.captured' ? 'captured' : payload.event === 'payment.failed' ? 'failed' : null
-  if (status) {
-    await client.from('payments').update({ status, gateway_order_id: payment.order_id, gateway_payment_id: payment.id }).eq('gateway_order_id', payment.order_id)
-    if (status === 'failed') await client.rpc('system_mark_payment_failed', { p_gateway_order_id: payment.order_id })
-  }
+  const eventId = request.headers.get('x-razorpay-event-id') || crypto.createHash('sha256').update(rawBody).digest('hex')
+  if (payload.event === 'payment.captured' || payload.event === 'payment.failed') await client.rpc('system_process_payment_event', { p_event_id: eventId, p_event_name: payload.event, p_gateway_order_id: payment.order_id, p_gateway_payment_id: payment.id, p_payload: payload })
   return NextResponse.json({ received: true })
 }

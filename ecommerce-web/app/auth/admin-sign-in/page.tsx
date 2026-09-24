@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Logo } from '@/components/shared/logo'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { getCaptchaToken } from '@/lib/security/captcha'
 
 export default function AdminSignInPage() {
   const router = useRouter()
@@ -21,7 +22,8 @@ export default function AdminSignInPage() {
     setError('')
     const client = createSupabaseBrowserClient()
     if (!client) { setError('Supabase authentication is not configured.'); setBusy(false); return }
-    const { error: signInError } = await client.auth.signInWithPassword({ email, password })
+    const captchaToken = await getCaptchaToken()
+    const { error: signInError } = await client.auth.signInWithPassword({ email, password, options: { captchaToken } })
     if (signInError) setError(signInError.message)
     else router.push(returnTo)
     setBusy(false)

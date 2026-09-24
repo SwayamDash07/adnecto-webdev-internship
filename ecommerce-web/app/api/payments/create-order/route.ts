@@ -1,13 +1,19 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { limitedResponse, parseJson, rateLimit } from '@/lib/security/server'
+import { z } from 'zod'
+
+const schema = z.object({ orderId: z.coerce.number().int().positive() })
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'AUTH_REQUIRED' }, { status: 401 })
-  const body = await request.json() as { orderId?: number }
-  const orderId = Number(body.orderId)
-  if (!Number.isInteger(orderId) || orderId < 1) return NextResponse.json({ error: 'INVALID_ORDER' }, { status: 400 })
+  const limit = rateLimit(`payment:create:${user.id}`, 5, 60_000)
+  if (!limit.allowed) return limitedResponse(limit.retryAfter)
+  const parsed = await parseJson(request, schema)
+  if (parsed.error) return parsed.error
+  const orderId = parsed.data.orderId
   const { data: order, error } = await supabase.from('orders').select('id,total').eq('id', orderId).eq('user_id', user.id).maybeSingle()
   if (error || !order) return NextResponse.json({ error: 'ORDER_NOT_FOUND' }, { status: 404 })
   const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID

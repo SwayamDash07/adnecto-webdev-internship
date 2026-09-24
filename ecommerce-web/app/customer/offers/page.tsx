@@ -1,5 +1,6 @@
-import { CustomerPage } from '@/components/customer/customer-page'
+import { SiteHeader } from '@/components/customer/site-header'
+import { CatalogueBrowser } from '@/components/customer/commerce-workflows'
 
 export default function OffersPage() {
-  return <CustomerPage title="Today’s offers" description="Flash deals, best sellers, frequently bought together and new arrivals." cards={[["⚡", "Flash deals", "Time-based offers with clear discount and availability states."], ["★", "Best sellers", "Popular products with ratings and reviews."], ["✦", "Frequently bought together", "Bundle suggestions ready for the future cart engine."]]}/>
+  return <><SiteHeader /><main className="module-page"><div className="module-heading"><div><p className="eyebrow">DEALS</p><h1>Today&apos;s offers</h1><p>Live catalogue pricing, discounts, availability and ratings.</p></div></div><CatalogueBrowser /></main></>
 }

@@ -1,6 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { ChevronLeft, ChevronRight, Search, SlidersHorizontal } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { money } from '@/lib/data'
 
@@ -8,35 +10,14 @@ type AdminOrder = { order_id: number; customer_name: string; customer_email: str
 const statuses = ['placed', 'accepted', 'picking', 'packed', 'out_for_delivery', 'delivered', 'cancelled', 'returned', 'refunded']
 
 export default function AdminOrderQueue() {
-  const [orders, setOrders] = useState<AdminOrder[]>([])
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [busy, setBusy] = useState<number | null>(null)
-  async function load() {
-    setLoading(true)
-    setError('')
-    const client = createSupabaseBrowserClient()
-    if (!client) { setError('Supabase browser configuration is missing. Check .env.local and restart Next.js.'); setLoading(false); return }
-    const { data, error: queryError } = await client.rpc('admin_list_orders')
-    if (queryError) setError(`Could not load orders: ${queryError.message}`)
-    else setOrders((data ?? []) as AdminOrder[])
-    setLoading(false)
-  }
-  useEffect(() => {
-    const client = createSupabaseBrowserClient(); if (!client) return
-    const channel = client.channel('admin-orders-live').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => { void load() }).subscribe()
-    void load()
-    return () => { void channel.unsubscribe() }
-  }, [])
-  async function updateStatus(orderId: number, status: string) {
-    setBusy(orderId)
-    setError('')
-    const client = createSupabaseBrowserClient()
-    if (!client) { setError('Supabase browser configuration is missing.'); setBusy(null); return }
-    const { error: updateError } = await client.rpc('admin_update_order_status', { p_order_id: orderId, p_status: status })
-    if (updateError) setError(`Could not update order: ${updateError.message}`)
-    else await load()
-    setBusy(null)
-  }
-  return <section className="panel table-panel"><div className="panel-heading"><div><h2>Live order queue</h2><p>Orders and fulfilment status from Supabase.</p></div><button className="secondary-button" onClick={() => void load()} disabled={loading}>Refresh</button></div>{error && <p className="low-stock">{error}</p>}{loading ? <section className="placeholder"><h2>Loading orders…</h2><p>Checking Supabase for the latest customer orders.</p></section> : orders.length ? <div className="inventory-table"><div className="table-head"><span>Order</span><span>Customer</span><span>Total</span><span>Address</span><span>Status</span></div>{orders.map(order => <div className="table-row" key={order.order_id}><span><strong>#{order.order_id}</strong><small>{new Date(order.created_at).toLocaleDateString('en-IN')}</small></span><span>{order.customer_name}<small>{order.customer_email}</small></span><span>{money(Number(order.total))}<small>{order.item_count} item{order.item_count === 1 ? '' : 's'}</small></span><span>{order.address_line || 'No address'}</span><span><select value={order.status} disabled={busy === order.order_id} onChange={event => void updateStatus(order.order_id, event.target.value)}>{statuses.map(status => <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>)}</select></span></div>)}</div> : <section className="placeholder"><h2>No orders yet</h2><p>The admin RPC returned zero orders. Verify the order exists in Supabase.</p></section>}</section>
+  const [orders, setOrders] = useState<AdminOrder[]>([]); const [error, setError] = useState(''); const [loading, setLoading] = useState(true); const [busy, setBusy] = useState<number | null>(null)
+  const [query, setQuery] = useState(''); const [status, setStatus] = useState(''); const [sort, setSort] = useState<'newest' | 'oldest' | 'highest'>('newest'); const [page, setPage] = useState(1)
+  const pageSize = 8
+  async function load() { setLoading(true); setError(''); const client = createSupabaseBrowserClient(); if (!client) { setError('Supabase browser configuration is missing.'); setLoading(false); return }; const { data, error: queryError } = await client.rpc('admin_list_orders'); if (queryError) setError(`Could not load orders: ${queryError.message}`); else setOrders((data ?? []) as AdminOrder[]); setLoading(false) }
+  useEffect(() => { const client = createSupabaseBrowserClient(); if (!client) return; const channel = client.channel('admin-orders-live').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => { void load() }).subscribe(); void load(); return () => { void channel.unsubscribe() } }, [])
+  async function updateStatus(orderId: number, nextStatus: string) { setBusy(orderId); setError(''); const client = createSupabaseBrowserClient(); if (!client) { setError('Supabase browser configuration is missing.'); setBusy(null); return }; const { error: updateError } = await client.rpc('admin_update_order_status', { p_order_id: orderId, p_status: nextStatus }); if (updateError) setError(`Could not update order: ${updateError.message}`); else await load(); setBusy(null) }
+  const visibleOrders = useMemo(() => { const filtered = orders.filter(order => (!query || `${order.order_id} ${order.customer_name} ${order.customer_email}`.toLowerCase().includes(query.toLowerCase())) && (!status || order.status === status)); return filtered.sort((a, b) => sort === 'highest' ? Number(b.total) - Number(a.total) : sort === 'oldest' ? Date.parse(a.created_at) - Date.parse(b.created_at) : Date.parse(b.created_at) - Date.parse(a.created_at)) }, [orders, query, status, sort])
+  const totalPages = Math.max(1, Math.ceil(visibleOrders.length / pageSize)); const pageRows = visibleOrders.slice((page - 1) * pageSize, page * pageSize)
+  useEffect(() => { setPage(1) }, [query, status, sort])
+  return <section className="panel table-panel admin-table-panel"><div className="panel-heading"><div><p className="eyebrow">FULFILMENT WORKSPACE</p><h2>Live order queue</h2><p>Orders and fulfilment status from Supabase.</p></div><button className="secondary-button" onClick={() => void load()} disabled={loading}>{loading ? 'Refreshing' : 'Refresh'}</button></div>{error && <p className="low-stock" role="alert">{error}</p>}<div className="table-toolbar"><label className="table-search"><Search size={15} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search order or customer" aria-label="Search orders" /></label><label className="table-filter"><SlidersHorizontal size={14} /><select value={status} onChange={event => setStatus(event.target.value)} aria-label="Filter orders by status"><option value="">All statuses</option>{statuses.map(item => <option key={item} value={item}>{item.replaceAll('_', ' ')}</option>)}</select></label><select className="table-sort" value={sort} onChange={event => setSort(event.target.value as typeof sort)} aria-label="Sort orders"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="highest">Highest value</option></select><span className="table-count">{loading ? 'Loading orders' : `${visibleOrders.length} orders`}</span></div>{loading ? <div className="table-loading"><span /><span /><span /><span /><span /></div> : visibleOrders.length ? <><div className="inventory-table admin-data-table"><div className="table-head"><span>Order</span><span>Customer</span><span>Total</span><span>Address</span><span>Status</span></div><AnimatePresence mode="popLayout">{pageRows.map(order => <motion.div className="table-row" key={order.order_id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: .2 }}><span><strong>#{order.order_id}</strong><small>{new Date(order.created_at).toLocaleDateString('en-IN')}</small></span><span><strong>{order.customer_name}</strong><small>{order.customer_email}</small></span><span><strong>{money(Number(order.total))}</strong><small>{order.item_count} item{order.item_count === 1 ? '' : 's'}</small></span><span>{order.address_line || 'No address provided'}</span><span><select className="status-select" value={order.status} disabled={busy === order.order_id} onChange={event => void updateStatus(order.order_id, event.target.value)} aria-label={`Update order ${order.order_id} status`}>{statuses.map(item => <option key={item} value={item}>{item.replaceAll('_', ' ')}</option>)}</select></span></motion.div>)}</AnimatePresence></div><div className="table-pagination"><span>Page {page} of {totalPages}</span><div><button onClick={() => setPage(current => Math.max(1, current - 1))} disabled={page === 1} aria-label="Previous page"><ChevronLeft size={15} /></button><button onClick={() => setPage(current => Math.min(totalPages, current + 1))} disabled={page === totalPages} aria-label="Next page"><ChevronRight size={15} /></button></div></div></> : <section className="placeholder compact-empty"><h2>{query || status ? 'No matching orders' : 'No orders yet'}</h2><p>{query || status ? 'Try a different search or status filter.' : 'New customer orders will appear here.'}</p></section>}</section>
 }

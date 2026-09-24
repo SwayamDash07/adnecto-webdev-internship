@@ -5,6 +5,7 @@ import './ux-fixes.css'
 import './admin-fixes.css'
 import './phase4.css'
 import { CartToast } from '@/components/shared/cart-toast'
+import { Providers } from '@/components/providers'
 
 export const metadata: Metadata = {
   title: 'Cartly Hypermarket',
@@ -12,5 +13,5 @@ export const metadata: Metadata = {
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}<CartToast /></body></html>
+  return <html lang="en"><body><Providers>{children}<CartToast /></Providers>{process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async />}</body></html>
 }

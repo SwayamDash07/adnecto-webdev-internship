@@ -1,0 +1,1 @@
+export default function AuthLoading() { return <main className="auth-shell"><section className="auth-card"><span className="skeleton auth-loading-mark" /><span className="skeleton auth-loading-title" /><span className="skeleton auth-loading-field" /><span className="skeleton auth-loading-field" /><span className="skeleton auth-loading-button" /></section></main> }

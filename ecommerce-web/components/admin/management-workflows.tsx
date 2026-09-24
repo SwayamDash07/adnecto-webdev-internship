@@ -34,7 +34,7 @@ export function InventoryManager() {
     if (!item || !Number.isInteger(delta) || delta === 0) { setError('Choose a product and enter a non-zero whole-number adjustment.'); return }
     const client = createSupabaseBrowserClient()
     if (!client) return
-    const { error: updateError } = await client.rpc('admin_adjust_inventory', { p_product_id: item.product_id, p_delta: delta, p_reason: adjustment.reason })
+    const { error: updateError } = await client.rpc('admin_adjust_inventory_with_batch', { p_product_id: item.product_id, p_delta: delta, p_reason: adjustment.reason, p_batch_number: adjustment.batch || null, p_expiry_date: adjustment.expiry || null })
     if (updateError) setError(updateError.message)
     else { setMessage('Inventory updated in Supabase.'); setAdjustment(current => ({ ...current, quantity: '' })); await load() }
   }

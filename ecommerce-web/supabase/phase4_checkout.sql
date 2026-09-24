@@ -31,8 +31,8 @@ language plpgsql security definer set search_path = public
 as $$
 declare
   v_order_id bigint; v_item jsonb; v_product_id bigint; v_requested_id bigint;
-  v_sku text; v_name text; v_quantity integer; v_price numeric;
-  v_subtotal numeric := 0; v_discount numeric := 0; v_delivery numeric := 0; v_packing numeric := 19; v_total numeric;
+  v_sku text; v_name text; v_quantity integer; v_price numeric; v_gst numeric;
+  v_subtotal numeric := 0; v_gst_total numeric := 0; v_discount numeric := 0; v_delivery numeric := 0; v_packing numeric := 19; v_total numeric;
 begin
   if auth.uid() is null then raise exception 'AUTH_REQUIRED'; end if;
   if p_address_id is null or not exists (select 1 from public.addresses where id = p_address_id and user_id = auth.uid()) then raise exception 'ADDRESS_REQUIRED'; end if;
@@ -41,13 +41,14 @@ begin
     v_requested_id := nullif(v_item->>'product_id', '')::bigint; v_product_id := null;
     v_sku := nullif(v_item->>'sku', ''); v_name := nullif(v_item->>'name', ''); v_quantity := (v_item->>'quantity')::integer;
     if v_quantity is null or v_quantity < 1 then raise exception 'INVALID_QUANTITY'; end if;
-    if v_sku is not null then select id, selling_price into v_product_id, v_price from public.products where sku = v_sku and is_active; end if;
-    if v_price is null and v_name is not null then select id, selling_price into v_product_id, v_price from public.products where lower(name) = lower(v_name) and is_active; end if;
-    if v_price is null and v_requested_id is not null then select id, selling_price into v_product_id, v_price from public.products where id = v_requested_id and is_active; end if;
+    if v_sku is not null then select id, selling_price, gst into v_product_id, v_price, v_gst from public.products where sku = v_sku and is_active; end if;
+    if v_price is null and v_name is not null then select id, selling_price, gst into v_product_id, v_price, v_gst from public.products where lower(name) = lower(v_name) and is_active; end if;
+    if v_price is null and v_requested_id is not null then select id, selling_price, gst into v_product_id, v_price, v_gst from public.products where id = v_requested_id and is_active; end if;
     if v_price is null then raise exception 'PRODUCT_NOT_FOUND'; end if;
     update public.inventory set current_stock = current_stock - v_quantity where product_id = v_product_id and current_stock - reserved_stock >= v_quantity;
     if not found then raise exception 'INSUFFICIENT_STOCK:%', v_product_id; end if;
     v_subtotal := v_subtotal + v_price * v_quantity;
+    v_gst_total := v_gst_total + (v_price * v_quantity * coalesce(v_gst, 0) / 100);
   end loop;
   if v_subtotal >= 499 then v_delivery := 0; else v_delivery := 49; end if;
   if v_subtotal >= 3000 then v_discount := round(v_subtotal * 0.1); end if;
@@ -56,7 +57,7 @@ begin
     select discount into v_price from public.customer_validate_coupon(p_coupon_code, v_subtotal) where valid;
     v_discount := v_discount + coalesce(v_price, 0);
   end if;
-  v_total := greatest(0, v_subtotal + v_delivery + v_packing - v_discount);
+  v_total := greatest(0, v_subtotal + v_gst_total + v_delivery + v_packing - v_discount);
   insert into public.orders(user_id, address_id, delivery_slot, total) values (auth.uid(), p_address_id, p_delivery_slot, v_total) returning id into v_order_id;
   for v_item in select * from jsonb_array_elements(p_items) loop
     v_requested_id := nullif(v_item->>'product_id', '')::bigint; v_product_id := null;

@@ -1,3 +1,3 @@
 export default function LoadingPage() {
-  return <main className="module-page"><section className="panel placeholder"><h2>Loading Cartly…</h2></section></main>
+  return <main className="module-page loading-page" aria-label="Loading content"><div className="loading-heading"><span className="skeleton skeleton-kicker" /><span className="skeleton skeleton-title" /><span className="skeleton skeleton-copy" /></div><div className="product-grid">{Array.from({ length: 8 }, (_, index) => <article className="skeleton-card" key={index}><span className="skeleton skeleton-art" /><span className="skeleton skeleton-line short" /><span className="skeleton skeleton-line" /><span className="skeleton skeleton-price" /><span className="skeleton skeleton-button" /></article>)}</div></main>
 }
