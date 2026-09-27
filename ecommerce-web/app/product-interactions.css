@@ -1,0 +1,1 @@
+.product-card:focus-within:not(:hover) .product-actions{opacity:0;transform:translateX(6px)}.product-card:focus-visible .product-actions{opacity:1;transform:translateX(0)}.heart.saved{transform:none!important;color:#e24f69!important;background:#fff0f3!important}.heart.saved:hover{transform:scale(1.08)!important}

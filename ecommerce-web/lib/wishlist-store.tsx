@@ -25,12 +25,13 @@ export const wishlistStore = {
   },
   toggle: async (product: Product) => {
     const isSaved = ids.has(product.id)
+    ids = new Set(ids)
     if (isSaved) ids.delete(product.id); else ids.add(product.id)
     save(); emit()
     const client = createSupabaseBrowserClient(); if (!client) return
     const { data: { user } } = await client.auth.getUser(); if (!user) return
-    if (isSaved) await client.from('wishlists').delete().eq('user_id', user.id).eq('product_id', product.id)
-    else await client.from('wishlists').upsert({ user_id: user.id, product_id: product.id })
+    const { error } = isSaved ? await client.from('wishlists').delete().eq('user_id', user.id).eq('product_id', product.id) : await client.from('wishlists').upsert({ user_id: user.id, product_id: product.id })
+    if (error) { ids = new Set(ids); if (isSaved) ids.add(product.id); else ids.delete(product.id); save(); emit() }
   }
 }
 

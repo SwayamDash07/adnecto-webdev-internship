@@ -17,6 +17,8 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'artisanchemist.com.au' },
       { protocol: 'https', hostname: 'cdn.shopify.com' },
       { protocol: 'https', hostname: 'images.gastronom.ru' },
+      { protocol: 'https', hostname: 'images.philips.com' },
+      { protocol: 'https', hostname: 'www.ikea.is' },
       { protocol: 'https', hostname: 'encrypted-tbn0.gstatic.com' },
     ],
   },
