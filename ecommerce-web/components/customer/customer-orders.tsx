@@ -13,15 +13,26 @@ export function CustomerOrders() {
   const [busy, setBusy] = useState<number | null>(null)
   async function load() { const client = createSupabaseBrowserClient(); if (!client) return; const { data, error: queryError } = await client.from('orders').select('id,status,total,created_at,delivery_slot').order('created_at', { ascending: false }); if (queryError) setError(queryError.message); else setOrders((data ?? []) as Order[]) }
   useEffect(() => {
+    let cancelled = false
     let channel: ReturnType<NonNullable<ReturnType<typeof createSupabaseBrowserClient>>['channel']> | null = null
     void (async () => {
       const client = createSupabaseBrowserClient(); if (!client) return
       await load()
       const { data: { user } } = await client.auth.getUser()
-      if (!user) return
-      channel = client.channel(`customer-orders-${user.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `user_id=eq.${user.id}` }, () => { void load() }).subscribe()
+      if (!user || cancelled) return
+      const nextChannel = client.channel(`customer-orders-${user.id}`)
+      nextChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `user_id=eq.${user.id}` }, () => { void load() })
+      if (cancelled) {
+        void nextChannel.unsubscribe()
+        return
+      }
+      channel = nextChannel
+      channel.subscribe()
     })()
-    return () => { if (channel) void channel.unsubscribe() }
+    return () => {
+      cancelled = true
+      if (channel) void channel.unsubscribe()
+    }
   }, [])
   async function cancel(orderId: number) {
     if (!window.confirm('Cancel this order? Stock will be returned and the payment will be marked for refund.')) return

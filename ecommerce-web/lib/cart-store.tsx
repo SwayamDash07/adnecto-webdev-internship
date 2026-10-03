@@ -8,11 +8,14 @@ type Listener = () => void
 type State = { lines: CartLine[]; ready: boolean }
 const EMPTY_STATE: State = { lines: [], ready: false }
 const STORAGE_KEY = 'cartly-guest-cart'
+export const MAX_CART_QUANTITY = 99
 let state: State = EMPTY_STATE
 const listeners = new Set<Listener>()
 const emit = () => { listeners.forEach(listener => listener()) }
 const saveGuest = () => { if (typeof window !== 'undefined') window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state.lines)) }
-const available = (product: Product) => Math.max(0, product.stock)
+const available = (product: Product) => product.stockIsAvailabilityOnly
+  ? (product.stock > 0 ? MAX_CART_QUANTITY : 0)
+  : Math.max(0, product.stock)
 
 function key(line: Pick<CartLine, 'product' | 'variant'>) { return `${line.product.id}:${line.variant ?? ''}` }
 
@@ -21,7 +24,13 @@ export const cartStore = {
   subscribe: (listener: Listener) => { listeners.add(listener); return () => listeners.delete(listener) },
   hydrate: () => {
     if (typeof window === 'undefined' || state.ready) return
-    try { state = { lines: JSON.parse(window.localStorage.getItem(STORAGE_KEY) || '[]'), ready: true } } catch { state = { lines: [], ready: true } }
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || '[]') as CartLine[]
+      const lines = stored.map(line => line.product.stockIsAvailabilityOnly === undefined && line.product.stock === 1
+        ? { ...line, product: { ...line.product, stockIsAvailabilityOnly: true } }
+        : line)
+      state = { lines, ready: true }
+    } catch { state = { lines: [], ready: true } }
     emit()
   },
   add: (product: Product, quantity = 1, variant?: string) => {

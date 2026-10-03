@@ -42,7 +42,7 @@ where method is distinct from case
   when lower(trim(method)) in ('cod', 'cash on delivery') then 'cod'
   else 'Razorpay'
 end;
-alter table public.payments add constraint payments_method_check check (method in ('upi','card','netbanking','wallet','cod','Razorpay'));
+alter table public.payments add constraint payments_method_check check (method in ('prepaid','upi','card','netbanking','wallet','cod','Razorpay'));
 
 create or replace function public.restore_order_stock(p_order_id bigint)
 returns void language plpgsql security definer set search_path = public as $$

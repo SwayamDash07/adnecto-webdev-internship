@@ -13,6 +13,7 @@ export type Product = {
   gallery?: string[]
   details?: { material?: string; warranty?: string; expiry?: string; origin?: string; packSize?: string; highlights?: string[] }
   stock: number
+  stockIsAvailabilityOnly?: boolean
   sku?: string
   barcode?: string
   brand?: string

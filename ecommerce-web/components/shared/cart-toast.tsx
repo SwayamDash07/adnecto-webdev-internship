@@ -9,5 +9,5 @@ export function CartToast() {
   useEffect(() => { showListener = setMessage; return () => { showListener = null } }, [])
   useEffect(() => { if (!message) return; const timer = window.setTimeout(() => setMessage(''), 3500); return () => window.clearTimeout(timer) }, [message])
   if (!message) return null
-  return <div className="cart-toast" role="status"><span>✓ {message}</span><Link href="/customer/cart">View cart</Link><button onClick={() => setMessage('')} aria-label="Dismiss">×</button></div>
+  return <div className="cart-toast" role="status"><span> {message}</span><Link href="/customer/cart">View cart</Link><button onClick={() => setMessage('')} aria-label="Dismiss">×</button></div>
 }

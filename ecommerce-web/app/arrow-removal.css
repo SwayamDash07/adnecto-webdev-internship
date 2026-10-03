@@ -1,0 +1,44 @@
+/* Navigation is intentionally text-led; keep directional glyphs out of the UI. */
+.lucide-arrow-right,
+.lucide-arrow-left,
+.lucide-chevron-left,
+.lucide-chevron-right {
+  display: none !important;
+}
+
+.workflow-step:not(:last-child)::after {
+  content: none !important;
+}
+
+.table-pagination button:first-child::after {
+  content: 'Previous';
+}
+
+.table-pagination button:last-child::after {
+  content: 'Next';
+}
+
+.detail-actions .primary-button {
+  font-size: 0;
+}
+
+.detail-actions .primary-button:not(:disabled)::after {
+  content: 'Add to cart';
+  font-size: 12px;
+}
+
+.detail-actions .primary-button:disabled::after {
+  content: 'Out of stock';
+  font-size: 12px;
+}
+
+.account-quick-link::after {
+  content: 'Open';
+  color: var(--purple);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.back-button {
+  cursor: pointer;
+}

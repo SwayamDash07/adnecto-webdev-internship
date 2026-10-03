@@ -46,9 +46,9 @@ export function SiteHeader() {
       <Logo />
       <form className="search-bar" onSubmit={submitSearch} role="search">
         <label className="sr-only" htmlFor="site-search">Search products</label>
-        <select aria-label="Search category"><option>All</option><option>Groceries</option><option>Electronics</option><option>Personal care</option></select>
-        <input id="site-search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search products, brands and more" />
-        <button aria-label="Search" type="submit"><Search size={18} strokeWidth={2.2} /></button>
+        <button className="search-bar-icon" type="submit" aria-label="Search"><Search size={18} strokeWidth={2.2} /></button>
+        <input id="site-search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search" />
+        <button className="sr-only" type="submit" aria-label="Search">Search</button>
       </form>
       <div className="header-actions">
         <Link className="header-action wishlist-nav-link" href="/customer/wishlist" aria-label="Open wishlist"><Heart className="action-icon" size={22} /><strong>Wishlist</strong></Link>

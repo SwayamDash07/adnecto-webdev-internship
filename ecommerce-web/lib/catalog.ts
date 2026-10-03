@@ -63,6 +63,7 @@ export function mapCatalogProduct(row: CatalogRow, publicStock?: number): Produc
     gallery: images.slice(1).map(image => image.storage_path),
     details,
     stock: publicStock ?? Number(inventory?.current_stock ?? 0),
+    stockIsAvailabilityOnly: publicStock !== undefined,
     sku: row.sku ?? undefined,
     barcode: row.barcode ?? undefined,
     brand: brand?.name,

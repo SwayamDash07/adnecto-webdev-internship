@@ -1,1 +1,7 @@
 .trust-row{display:none!important}
+.promo-ads,.catalog{max-width:none;width:100%;padding-left:clamp(18px,3vw,48px);padding-right:clamp(18px,3vw,48px)}
+.category-strip{width:100%;max-width:none;margin:0;padding:18px clamp(16px,3vw,48px);display:flex;flex-wrap:wrap;align-items:center;gap:12px 14px;overflow:hidden}
+.category-strip-title{flex:0 0 190px;min-width:175px}
+.category-strip>a{flex:1 1 130px;min-width:0;max-width:190px;min-height:54px;justify-content:flex-start;padding:9px 11px}
+.category-strip>a b{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.15}
+@media(max-width:900px){.category-strip-title{flex-basis:100%}.category-strip>a{flex:1 1 145px;max-width:none}}
