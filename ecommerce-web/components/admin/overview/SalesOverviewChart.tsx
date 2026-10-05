@@ -1,0 +1,10 @@
+import { m } from 'framer-motion'
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { PackageSearch } from 'lucide-react'
+import { panelMotion } from '@/constants/admin-overview'
+import { compactDay, moneyTooltip } from '@/lib/admin/overview-formatters'
+import type { SalesPoint } from '@/types/admin-overview'
+
+export function SalesOverviewChart({ loading, sales }: { loading: boolean; sales: SalesPoint[] }) {
+  return <m.section className="panel analytics-panel" {...panelMotion}><div className="panel-heading"><div><p className="eyebrow">LAST 30 DAYS</p><h2>Sales overview</h2><p>Revenue from live orders</p></div><span className="panel-chip">Daily revenue</span></div><div className="chart-wrap">{loading ? <div className="chart-skeleton" /> : sales.length ? <ResponsiveContainer width="100%" height="100%"><AreaChart data={sales} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}><defs><linearGradient id="salesFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#6355d3" stopOpacity={.28} /><stop offset="100%" stopColor="#6355d3" stopOpacity={0} /></linearGradient></defs><CartesianGrid vertical={false} stroke="#edf0f5" /><XAxis dataKey="day" tickFormatter={compactDay} tickLine={false} axisLine={false} tick={{ fill: '#9299aa', fontSize: 10 }} minTickGap={28} /><YAxis tickLine={false} axisLine={false} tick={{ fill: '#9299aa', fontSize: 10 }} tickFormatter={value => `₹${Number(value) >= 1000 ? `${(Number(value) / 1000).toFixed(0)}k` : value}`} /><Tooltip contentStyle={{ border: '1px solid #e6e8f0', borderRadius: 10, boxShadow: '0 10px 25px #1d264c14', fontSize: 11 }} formatter={moneyTooltip} labelFormatter={value => compactDay(String(value))} /><Area type="monotone" dataKey="revenue" stroke="#6355d3" strokeWidth={2.5} fill="url(#salesFill)" animationDuration={900} animationEasing="ease-out" /></AreaChart></ResponsiveContainer> : <div className="chart-empty"><PackageSearch size={23} /><strong>No sales data yet</strong><span>Revenue will appear here after the first completed order.</span></div>}</div></m.section>
+}

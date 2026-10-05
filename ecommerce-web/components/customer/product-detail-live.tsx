@@ -4,9 +4,9 @@ import { useState } from 'react'
 import { cartStore, MAX_CART_QUANTITY } from '@/lib/cart-store'
 import { showCartToast } from '@/components/shared/cart-toast'
 import { useWishlist } from '@/lib/wishlist-store'
-import { money } from '@/lib/data'
+import { money } from '@/lib/formatters'
 import Image from 'next/image'
-import type { Product } from '@/lib/types'
+import type { Product } from '@/types/catalog'
 
 export function ProductDetailLive({ product }: { product: Product }) {
   const [activeImage, setActiveImage] = useState(product.imageUrl ?? '')

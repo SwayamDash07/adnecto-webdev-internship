@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { AdminShell } from './admin-shell'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
-import { money } from '@/lib/data'
+import { money } from '@/lib/formatters'
 
 type Queue = 'picker' | 'delivery'
 type FulfilmentOrder = { order_id: number; customer_name: string; total: number; status: string; delivery_slot: string | null; address_line: string; item_count: number }

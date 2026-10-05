@@ -1,11 +1,6 @@
-import type { Order, Product } from './types'
+import type { Order, Product } from '@/types/catalog'
 
 export const fallbackProductImage = 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=900&q=85'
-
-export const categories = ['Groceries', 'Vegetables', 'Fruits', 'Meat & fish', 'Bakery', 'Dairy', 'Frozen', 'Beverages', 'Personal care', 'Baby care', 'Cleaning', 'Kitchen', 'Electronics', 'Home appliances', 'Fashion', 'Sports', 'Stationery']
-
-export const categorySlugMap: Record<string, string> = { groceries: 'Groceries', electronics: 'Electronics', 'personal-care': 'Personal care', home: 'Home appliances', 'home-appliances': 'Home appliances', fashion: 'Fashion', sports: 'Sports', vegetables: 'Vegetables', fruits: 'Fruits', bakery: 'Bakery', dairy: 'Dairy', 'dairy-eggs': 'Dairy', cleaning: 'Cleaning', kitchen: 'Kitchen', 'baby-care': 'Baby care' }
-export function categoryFromSlug(slug: string) { return categorySlugMap[slug.trim().toLowerCase()] ?? slug.trim().replaceAll('-', ' ') }
 
 export const products: Product[] = [
   { id: 1, name: 'Apple iPhone 15 128GB', category: 'Electronics', price: 61999, oldPrice: 69900, rating: 4.7, reviews: 1842, badge: 'Popular choice', color: 'blue', emoji: '', imageUrl: 'https://images.unsplash.com/photo-1696446701796-da61225697cc?auto=format&fit=crop&w=900&q=85', stock: 42, sku: 'DEMO-IPHONE15-128', brand: 'Apple', gst: 18, hsn: '85171300', variants: ['Black', 'Blue', 'Pink'], description: 'A demo listing for Apple iPhone 15 with 128GB storage.' },
@@ -30,7 +25,7 @@ products.push(...[
   { id: 109, name: 'Bajaj Majesty Room Heater', category: 'Home appliances', price: 2199, oldPrice: 2999, rating: 4.3, reviews: 392, badge: 'Seasonal deal', color: 'white', emoji: '', imageUrl: 'https://images.unsplash.com/photo-1618948803399-5a1e5ad8d9d3?auto=format&fit=crop&w=900&q=85', stock: 33, brand: 'Bajaj' },
   { id: 110, name: 'Milton Thermosteel Water Bottle 1L', category: 'Home appliances', price: 899, oldPrice: 1299, rating: 4.5, reviews: 814, badge: 'Popular choice', color: 'silver', emoji: '', imageUrl: 'https://images.unsplash.com/photo-1602143407151-7111542de6e8?auto=format&fit=crop&w=900&q=85', stock: 74, brand: 'Milton' },
   { id: 111, name: 'Levi’s 511 Slim Fit Jeans', category: 'Fashion', price: 2399, oldPrice: 3999, rating: 4.5, reviews: 563, badge: 'Classic fit', color: 'blue', emoji: '', imageUrl: 'https://images.unsplash.com/photo-1542272604-787c3835535d?auto=format&fit=crop&w=900&q=85', stock: 46, brand: "Levi's" },
-  { id: 112, name: 'Adidas Runfalcon 3 Shoes', category: 'Fashion', price: 3299, oldPrice: 4999, rating: 4.4, reviews: 288, badge: 'Trending', color: 'white', emoji: '', imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=900&q=85', stock: 39, brand: 'Adidas' },
+  { id: 112, name: 'Adidas Runfalcon 3 Shoes', category: 'Fashion', price: 3299, oldPrice: 4999, rating: 4.4, reviews: 288, badge: 'Trending', color: 'white', emoji: '', imageUrl: 'https://assets.adidas.com/images/w_600%2Cf_auto%2Cq_auto/3af9217001754805a855af3b00849bd5_9366/Tenis_Runfalcon_3_Branco_HP7546_04_standard.jpg', stock: 39, brand: 'Adidas' },
   { id: 113, name: 'H&M Cotton Oversized T-Shirt', category: 'Fashion', price: 799, oldPrice: 1299, rating: 4.3, reviews: 174, badge: 'Easy everyday', color: 'white', emoji: '', imageUrl: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=85', stock: 64, brand: 'H&M' },
   { id: 114, name: 'Fossil Grant Chronograph Watch', category: 'Fashion', price: 8995, oldPrice: 13995, rating: 4.6, reviews: 201, badge: 'Gift favourite', color: 'brown', emoji: '', imageUrl: 'https://images.unsplash.com/photo-1524805444758-089113d48a6d?auto=format&fit=crop&w=900&q=85', stock: 12, brand: 'Fossil' },
   { id: 115, name: 'Puma Essentials Backpack', category: 'Sports', price: 1299, oldPrice: 2199, rating: 4.4, reviews: 344, badge: 'Daily carry', color: 'black', emoji: '', imageUrl: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=900&q=85', stock: 42, brand: 'Puma' },
@@ -87,5 +82,3 @@ export const orders: Order[] = [
   { id: '#CL-10480', customer: 'Aarav Kapoor', total: '₹1,899', status: 'Out for delivery', location: 'Gurugram, Haryana' },
   { id: '#CL-10479', customer: 'Meera Iyer', total: '₹799', status: 'Delivered', location: 'Adyar, Chennai' }
 ]
-
-export const money = (value: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value)

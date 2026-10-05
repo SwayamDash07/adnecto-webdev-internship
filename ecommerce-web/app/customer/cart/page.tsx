@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { SiteHeader } from '@/components/customer/site-header'
 import { cartStore, MAX_CART_QUANTITY, useCart } from '@/lib/cart-store'
 import { calculateCart } from '@/lib/services/commerce'
-import { money } from '@/lib/data'
+import { money } from '@/lib/formatters'
 
 export default function CartPage() {
   const { lines, totalQuantity, lineKey } = useCart()

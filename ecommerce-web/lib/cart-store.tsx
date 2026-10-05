@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useSyncExternalStore } from 'react'
-import type { CartLine, Product } from '@/lib/types'
+import type { CartLine, Product } from '@/types/catalog'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 type Listener = () => void

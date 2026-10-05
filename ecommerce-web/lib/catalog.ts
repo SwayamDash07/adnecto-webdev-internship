@@ -1,4 +1,4 @@
-import type { Product } from '@/lib/types'
+import type { Product } from '@/types/catalog'
 
 export type CatalogCategory = { id: number; name: string; slug: string; parent_id?: number | null; sort_order?: number }
 

@@ -1,9 +1,15 @@
 import type { NextConfig } from 'next'
+import bundleAnalyzer from '@next/bundle-analyzer'
+
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === 'true',
+})
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   compress: true,
   experimental: {
+    optimizePackageImports: ['lucide-react'],
     staleTimes: {
       dynamic: 30,
       static: 300,
@@ -20,6 +26,7 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'images.philips.com' },
       { protocol: 'https', hostname: 'www.ikea.is' },
       { protocol: 'https', hostname: 'encrypted-tbn0.gstatic.com' },
+      { protocol: 'https', hostname: 'assets.adidas.com' },
     ],
   },
   async headers() {
@@ -33,4 +40,4 @@ const nextConfig: NextConfig = {
   },
 }
 
-export default nextConfig
+export default withBundleAnalyzer(nextConfig)

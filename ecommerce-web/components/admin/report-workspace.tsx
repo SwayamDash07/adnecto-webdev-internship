@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AdminShell } from './admin-shell'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
-import { money } from '@/lib/data'
+import { money } from '@/lib/formatters'
 import { useRealtimeReload } from '@/lib/use-realtime-reload'
 
 type SalesRow = { day: string; order_count: number; revenue: number }

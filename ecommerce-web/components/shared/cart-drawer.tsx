@@ -6,7 +6,7 @@ import { useEffect } from 'react'
 import { ArrowRight, Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react'
 import { cartStore, MAX_CART_QUANTITY, useCart } from '@/lib/cart-store'
 import { calculateCart } from '@/lib/services/commerce'
-import { money } from '@/lib/data'
+import { money } from '@/lib/formatters'
 
 export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { lines, totalQuantity, lineKey } = useCart()

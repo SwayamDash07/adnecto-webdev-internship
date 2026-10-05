@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { categoryFromSlug } from '@/lib/data'
+import { categoryFromSlug } from '@/lib/category'
 import { getActiveBanner } from '@/lib/banners-server'
 
 const banners: Record<string, { title: string; copy: string; image: string }> = {

@@ -1,3 +1,4 @@
+// Shared catalog and order domain types.
 export type Product = {
   id: number
   name: string

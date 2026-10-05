@@ -1,3 +1,3 @@
-import { LiveCouponManager } from '@/components/admin/phase3-workflows'
+import { LiveCouponManager } from '@/components/admin/coupons/live-coupon-manager'
 
 export default function CouponsPage() { return <LiveCouponManager /> }

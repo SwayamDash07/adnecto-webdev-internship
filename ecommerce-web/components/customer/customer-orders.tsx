@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
-import { money } from '@/lib/data'
+import { money } from '@/lib/formatters'
 
 type Order = { id: number; status: string; total: number; created_at: string; delivery_slot: string | null }
 

@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { catalogSelect, mapCatalogProduct, type CatalogCategory, type CatalogRow } from './catalog'
-import type { Product } from './types'
+import type { Product } from '@/types/catalog'
 
 function client() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } })

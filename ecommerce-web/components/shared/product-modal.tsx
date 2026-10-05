@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { Product } from '@/lib/types'
-import { fallbackProductImage, money } from '@/lib/data'
+import type { Product } from '@/types/catalog'
+import { fallbackProductImage } from '@/constants/catalog'
+import { money } from '@/lib/formatters'
 import Image from 'next/image'
 
 export function ProductModal({ product, onClose, onAdd }: { product: Product; onClose: () => void; onAdd: () => void }) {

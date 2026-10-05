@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useSyncExternalStore } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
-import type { Product } from '@/lib/types'
+import type { Product } from '@/types/catalog'
 
 const STORAGE_KEY = 'cartly-wishlist'
 const EMPTY_WISHLIST = new Set<number>()

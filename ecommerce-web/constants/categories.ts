@@ -1,0 +1,3 @@
+export const categories = ['Groceries', 'Vegetables', 'Fruits', 'Meat & fish', 'Bakery', 'Dairy', 'Frozen', 'Beverages', 'Personal care', 'Baby care', 'Cleaning', 'Kitchen', 'Electronics', 'Home appliances', 'Fashion', 'Sports', 'Stationery']
+
+export const categorySlugMap: Record<string, string> = { groceries: 'Groceries', electronics: 'Electronics', 'personal-care': 'Personal care', home: 'Home appliances', 'home-appliances': 'Home appliances', fashion: 'Fashion', sports: 'Sports', vegetables: 'Vegetables', fruits: 'Fruits', bakery: 'Bakery', dairy: 'Dairy', 'dairy-eggs': 'Dairy', cleaning: 'Cleaning', kitchen: 'Kitchen', 'baby-care': 'Baby care' }

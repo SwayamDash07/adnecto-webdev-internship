@@ -1,4 +1,4 @@
-import type { Address, CartLine, Product } from '@/lib/types'
+import type { Address, CartLine, Product } from '@/types/catalog'
 
 export type CheckoutDraft = { address: Address; slot: string; instructions: string; payment: string; contactless: boolean; substituteUnavailable: boolean; lines: CartLine[] }
 

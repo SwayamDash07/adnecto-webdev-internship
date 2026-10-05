@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { ArrowUpRight, ClipboardList, PackageCheck, TriangleAlert } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
-import { money } from '@/lib/data'
+import { money } from '@/lib/formatters'
 import { useRealtimeReload } from '@/lib/use-realtime-reload'
 
 type Summary = { today_sales: number; today_orders: number; pending_deliveries: number; low_stock_items: number }
@@ -40,5 +40,5 @@ export function Stats() {
   useEffect(() => { void load() }, [])
   useRealtimeReload('admin-stats-live', ['orders', 'order_items', 'inventory'], () => { void load() })
   const value = summary ?? { today_sales: 0, today_orders: 0, pending_deliveries: 0, low_stock_items: 0 }
-  return <div className="stat-grid">{cards.map((card, index) => { const Icon = card.icon; return <motion.div className={`stat-card stat-card-${card.tone}`} key={card.key} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .35, delay: index * .07, ease: [0.22, 1, 0.36, 1] }} whileHover={{ y: -4 }}><span className="stat-icon"><Icon size={18} strokeWidth={2.2} /></span><small>{card.label}</small><strong>{summary ? <AnimatedValue value={Number(value[card.key])} format={card.format} /> : <span className="stat-skeleton" />}</strong><em>{card.caption}</em></motion.div> })}</div>
+  return <div className="stat-grid">{cards.map((card, index) => { const Icon = card.icon; return <m.div className={`stat-card stat-card-${card.tone}`} key={card.key} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .35, delay: index * .07, ease: [0.22, 1, 0.36, 1] }} whileHover={{ y: -4 }}><span className="stat-icon"><Icon size={18} strokeWidth={2.2} /></span><small>{card.label}</small><strong>{summary ? <AnimatedValue value={Number(value[card.key])} format={card.format} /> : <span className="stat-skeleton" />}</strong><em>{card.caption}</em></m.div> })}</div>
 }

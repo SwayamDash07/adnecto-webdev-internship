@@ -6,7 +6,7 @@ import { Heart } from 'lucide-react'
 import { ProductCard } from '@/components/shared/product-card'
 import { fetchCatalogProducts } from '@/lib/catalog-client'
 import { useWishlist } from '@/lib/wishlist-store'
-import type { Product } from '@/lib/types'
+import type { Product } from '@/types/catalog'
 
 export function CustomerWishlist() {
   const { saved } = useWishlist()

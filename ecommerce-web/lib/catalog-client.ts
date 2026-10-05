@@ -2,7 +2,7 @@
 
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { catalogSelect, mapCatalogProduct, type CatalogCategory, type CatalogRow } from './catalog'
-import type { Product } from './types'
+import type { Product } from '@/types/catalog'
 
 export async function fetchCatalogProducts(): Promise<Product[]> {
   const client = createSupabaseBrowserClient()
