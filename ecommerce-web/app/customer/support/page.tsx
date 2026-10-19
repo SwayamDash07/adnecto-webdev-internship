@@ -1,11 +1,12 @@
 import { CustomerPage } from '@/components/customer/customer-page'
 import { CustomerSupport } from '@/components/customer/customer-support'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { requireCustomerRoute } from '@/lib/customer-auth'
 
 const SUPPORT_ORDERS_SELECT = 'id,status,total,created_at,delivered_at,delivery_slot,delivery_slot_start,delivery_slot_end,payments(method),refunds(status,amount,final_amount,reason),order_items(quantity,products!order_items_product_id_fkey(name,product_images(storage_path,sort_order)))'
 
 export default async function CustomerSupportPage({ searchParams }: { searchParams: Promise<{ order?: string | string[] }> }) {
-  const [params, supabase] = await Promise.all([searchParams, createSupabaseServerClient()])
+  const [params, auth] = await Promise.all([searchParams, requireCustomerRoute('/customer/support')])
+  const { supabase } = auth
   const [{ data: orders, error: orderError }, { data: tickets, error: ticketError }] = await Promise.all([
     supabase.from('orders').select(SUPPORT_ORDERS_SELECT).order('created_at', { ascending: false }).range(0, 9),
     supabase.rpc('customer_list_support_tickets'),

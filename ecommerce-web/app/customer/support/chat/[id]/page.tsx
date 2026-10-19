@@ -1,11 +1,11 @@
 import { CustomerPage } from '@/components/customer/customer-page'
 import { SupportChatScreen } from '@/components/customer/support-chat-screen'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { requireCustomerRoute } from '@/lib/customer-auth'
 
 export default async function ExistingSupportChatPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: rawId } = await params
+  const { supabase } = await requireCustomerRoute(`/customer/support/chat/${encodeURIComponent(rawId)}`)
   const ticketId = /^\d+$/.test(rawId) ? Number(rawId) : 0
-  const supabase = await createSupabaseServerClient()
   let initialTicket = null
   let initialMessages = []
   let initialError = ''
