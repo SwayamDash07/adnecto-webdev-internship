@@ -1,17 +1,28 @@
 'use client'
 
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { CircleAlert } from 'lucide-react'
+import { ArrowRight, CircleAlert } from 'lucide-react'
 import { Stats } from './stats'
 import { useAdminOverview } from '@/hooks/use-admin-overview'
-import { SalesOverviewChart } from './overview/SalesOverviewChart'
 import { RecentOrdersPanel } from './overview/RecentOrdersPanel'
-import { TopProductsChart } from './overview/TopProductsChart'
-import { InventoryAlertsPanel } from './overview/InventoryAlertsPanel'
+import { can } from '@/lib/permission-definitions'
+import { NeedsAttentionPanel } from './overview/NeedsAttentionPanel'
 
-export function Overview() {
+export function Overview({ role, initialOrders, initialLateOrders, initialLowStock, initialError }: { role: string | null; initialOrders: import('@/types/admin-overview').Recent[]; initialLateOrders: import('@/types/admin-overview').LateOrder[]; initialLowStock: import('@/types/admin-overview').LowStock[]; initialError: string }) {
   const pathname = usePathname()
-  const { orders, sales, topProducts, lowStock, loading, error } = useAdminOverview()
-  const ordersHref = `${pathname.replace(/\/$/, '')}/orders`
-  return <div className="admin-overview"><Stats />{error && <div className="admin-alert" role="alert"><CircleAlert size={17} />{error}</div>}<div className="dashboard-grid overview-primary-grid"><SalesOverviewChart loading={loading} sales={sales} /><RecentOrdersPanel loading={loading} orders={orders} ordersHref={ordersHref} /></div><div className="dashboard-grid overview-secondary-grid"><TopProductsChart loading={loading} topProducts={topProducts} /><InventoryAlertsPanel loading={loading} lowStock={lowStock} /></div></div>
+  const { orders, lateOrders, lowStock, loading, error, reload } = useAdminOverview(role, { initialOrders, initialLateOrders, initialLowStock, initialError })
+  const base = pathname.replace(/\/$/, '')
+  const ordersHref = `${base}/orders`
+  const inventoryHref = `${base}/inventory?stock=low`
+  const deliveryHref = `${base}/delivery`
+  return <div className="admin-overview overview-today-page">
+    <Stats role={role} orders={orders} />
+    {can(role, 'reports:view') && <div className="overview-report-link"><span>Need the longer-term picture?</span><Link href={`${base}/reports`}>View full report <ArrowRight size={14} /></Link></div>}
+    {error && <div className="admin-alert" role="alert"><CircleAlert size={17} />{error}</div>}
+    <div className="overview-action-grid">
+      <NeedsAttentionPanel loading={loading} error={error} orders={orders} lateOrders={lateOrders} lowStock={lowStock} role={role} ordersHref={ordersHref} inventoryHref={inventoryHref} deliveryHref={deliveryHref} onReload={reload} />
+      {can(role, 'reports:view') && <RecentOrdersPanel loading={loading} orders={orders} ordersHref={ordersHref} />}
+    </div>
+  </div>
 }
