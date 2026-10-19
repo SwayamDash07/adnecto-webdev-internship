@@ -1,3 +1,4 @@
+import 'server-only'
 import { createClient } from '@supabase/supabase-js'
 import { catalogSelect, mapCatalogProduct, type CatalogCategory, type CatalogRow } from './catalog'
 import type { Product } from '@/types/catalog'

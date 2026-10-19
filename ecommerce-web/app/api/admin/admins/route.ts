@@ -1,3 +1,4 @@
+import 'server-only'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse, type NextRequest } from 'next/server'
 import { getAdminProfile } from '@/lib/admin-auth'

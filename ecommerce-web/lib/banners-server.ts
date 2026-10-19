@@ -1,3 +1,4 @@
+import 'server-only'
 import { createClient } from '@supabase/supabase-js'
 
 type Banner = { title: string; copy: string | null; image_url: string }
