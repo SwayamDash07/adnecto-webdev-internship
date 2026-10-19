@@ -29,7 +29,7 @@ values
   (3, 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=900&q=85', 'boAt Rockerz 450 Bluetooth Headphones', 0),
   (4, 'https://images.philips.com/is/image/philipsconsumer/vrs_dea414b3_1cb4_4b84_9b4dcf797315caca?%24png%24=&hei=630&wid=1200', 'Philips 3000 Series Airfryer L HD9200/90 4.1L', 0),
   (5, 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=900&q=85', 'Samsung Galaxy Watch6', 0),
-  (6, 'https://www.ikea.is/static/web/ikea4/images/760/0776004_PE757677_S5.jpg?v=4bab895f', 'IKEA FJÄLLARNIKA Light Warm Duvet 150x200cm', 0),
+  (6, 'https://www.ikea.is/static/web/ikea4/images/760/0776004_PE757677_S5.jpg?v=4bab895f', 'IKEA Light Warm Duvet 150x200cm', 0),
   (7, 'https://images.unsplash.com/photo-1556228578-8c89e6adf883?auto=format&fit=crop&w=900&q=85', 'Dove Deep Moisture Body Wash 250ml', 0),
   (8, 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=900&q=85', 'Nike Air Max SC', 0),
   (9, 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=900&q=85', 'Tata Sampann Toor Dal 1kg', 0),

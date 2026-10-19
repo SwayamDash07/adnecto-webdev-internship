@@ -142,7 +142,12 @@
 
 .drawer-drawer {}
 
+.drawer-backdrop {
+  z-index: 100;
+}
+
 .cart-drawer {
+  z-index: 101;
   width: min(460px, 100%);
 }
 

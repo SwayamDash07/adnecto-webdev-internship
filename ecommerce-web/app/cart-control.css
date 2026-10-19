@@ -1,0 +1,25 @@
+.cart-add-control{width:100%;min-height:44px;height:44px;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;font-weight:700;transition:background .18s,color .18s,opacity .18s}
+.cart-add-control:not(:disabled){background:var(--purple);border-color:var(--purple);color:#fff}
+.cart-add-control:disabled{cursor:not-allowed;opacity:.72}
+.cart-add-control.is-unavailable{background:#f1f2f6;color:#858ca0;border:1px solid #e3e6ee}
+.cart-control-wrap{width:100%;min-width:0;display:flex;flex-direction:column;gap:3px;animation:cart-control-in 150ms ease-out both}
+.cart-stepper{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;width:100%;height:44px;border-radius:999px;background:var(--purple);color:#fff;overflow:hidden;animation:cart-control-in 150ms ease-out both}
+.cart-stepper button{height:44px;min-width:44px;display:grid;place-items:center;border:0;background:transparent;color:inherit;transition:background .15s,opacity .15s}
+.cart-stepper button:hover:not(:disabled){background:#ffffff20}
+.cart-stepper button:disabled{cursor:not-allowed;opacity:.42}
+.cart-stepper>span{display:grid;place-items:center;min-width:0;height:100%;font-size:14px;font-weight:700;font-variant-numeric:tabular-nums}
+.cart-stepper:focus-within,.cart-add-control:focus-visible{outline:3px solid #b8b2f3;outline-offset:3px}
+.cart-control-stock{min-height:12px;color:#b7791f;font-size:10px;line-height:12px;text-align:center}
+.cart-control-stock-placeholder{visibility:hidden}
+.cart-control-spinner{animation:cart-control-spin .8s linear infinite}
+.cart-stepper.is-pending{opacity:.8}
+.cart-control-wrap .cart-stepper button:focus-visible{outline:2px solid #fff;outline-offset:-4px;border-radius:50%}
+.product-card .cart-control-wrap{margin-top:auto}
+.product-info>.cart-control-wrap,.product-info>div>.cart-control-wrap{width:100%}
+.detail-actions>.cart-add-control,.detail-actions>.cart-control-wrap{flex:1;min-width:170px;max-width:260px}
+.modal-add{margin-top:18px}
+.modal-content>.cart-control-wrap{max-width:300px}
+@keyframes cart-control-spin{to{transform:rotate(360deg)}}
+@keyframes cart-control-in{from{opacity:.35}to{opacity:1}}
+@media(max-width:680px){.detail-actions>.cart-add-control,.detail-actions>.cart-control-wrap{min-width:0;max-width:none}}
+@media(prefers-reduced-motion:reduce){.cart-control-wrap,.cart-stepper{animation:none}.cart-control-spinner{animation-duration:1.5s}}

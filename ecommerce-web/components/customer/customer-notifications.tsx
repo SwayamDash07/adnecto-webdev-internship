@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useRealtimeReload } from '@/lib/use-realtime-reload'
 
-type Notification = { notification_id: number; order_id: number | null; title: string; message: string; read_at: string | null; created_at: string }
+type Notification = { notification_id: number; order_id: number | null; support_ticket_id?: number | null; title: string; message: string; read_at: string | null; created_at: string }
 
 export function CustomerNotifications() {
   const [items, setItems] = useState<Notification[]>([])
@@ -19,5 +20,5 @@ export function CustomerNotifications() {
     const client = createSupabaseBrowserClient(); if (!client) return
     await client.rpc('customer_mark_notification_read', { p_notification_id: id }); await load()
   }
-  return <section className="panel notifications-panel"><div className="panel-heading"><div><p className="eyebrow">STAY IN THE LOOP</p><h2>Notifications</h2><p>Live updates about your orders and deliveries.</p></div></div>{items.length ? <div className="order-list">{items.map(item => <div className={`order-row ${item.read_at ? 'is-read' : ''}`} key={item.notification_id}><span><strong>{item.title}</strong><small>{item.message}</small></span><em>{new Date(item.created_at).toLocaleString('en-IN')}</em>{!item.read_at && <button className="link-button" onClick={() => void markRead(item.notification_id)}>Mark read</button>}</div>)}</div> : <div className="inline-empty"><span>✦</span><div><strong>You&apos;re all caught up</strong><p>Order and delivery updates will appear here.</p></div></div>}</section>
+  return <section className="panel notifications-panel"><div className="panel-heading"><div><p className="eyebrow">STAY IN THE LOOP</p><h2>Notifications</h2><p>Live updates about your orders and deliveries.</p></div></div>{items.length ? <div className="order-list">{items.map(item => <div className={`order-row ${item.read_at ? 'is-read' : ''}`} key={item.notification_id}><span>{item.support_ticket_id?<Link href={`/customer/support/chat/${item.support_ticket_id}`} onClick={()=>void markRead(item.notification_id)}><strong>{item.title}</strong></Link>:<strong>{item.title}</strong>}<small>{item.message}</small></span><em>{new Date(item.created_at).toLocaleString('en-IN')}</em>{!item.read_at && <button className="link-button" onClick={() => void markRead(item.notification_id)}>Mark read</button>}</div>)}</div> : <div className="inline-empty"><span>✦</span><div><strong>You&apos;re all caught up</strong><p>Order and delivery updates will appear here.</p></div></div>}</section>
 }

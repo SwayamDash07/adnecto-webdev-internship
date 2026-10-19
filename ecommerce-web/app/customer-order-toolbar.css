@@ -1,0 +1,1 @@
+.orders-controls{display:flex;align-items:stretch;gap:10px;margin:0 0 18px}.orders-controls .orders-tabs{flex:1;margin:0}.orders-refresh{align-self:center;flex:0 0 auto}@media(max-width:600px){.orders-controls{gap:6px}.orders-refresh{padding:8px 10px;font-size:10px}}

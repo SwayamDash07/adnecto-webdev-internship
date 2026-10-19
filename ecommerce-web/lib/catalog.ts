@@ -1,4 +1,5 @@
 import type { Product } from '@/types/catalog'
+import { uncroppedProductImage } from '@/lib/product-image'
 
 export type CatalogCategory = { id: number; name: string; slug: string; parent_id?: number | null; sort_order?: number }
 
@@ -59,8 +60,8 @@ export function mapCatalogProduct(row: CatalogRow, publicStock?: number): Produc
     badge: typeof attributes.badge === 'string' ? attributes.badge : 'Available',
     color: typeof attributes.color === 'string' ? attributes.color : 'blue',
     emoji: typeof attributes.emoji === 'string' ? attributes.emoji : '▧',
-    imageUrl: images[0]?.storage_path,
-    gallery: images.slice(1).map(image => image.storage_path),
+    imageUrl: images[0]?.storage_path ? uncroppedProductImage(images[0].storage_path) : undefined,
+    gallery: images.slice(1).map(image => uncroppedProductImage(image.storage_path)),
     details,
     stock: publicStock ?? Number(inventory?.current_stock ?? 0),
     stockIsAvailabilityOnly: publicStock !== undefined,

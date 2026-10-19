@@ -31,8 +31,8 @@ create or replace function public.notify_order_status_change()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
   if new.status is distinct from old.status and new.user_id is not null then
-    insert into public.notifications(user_id, order_id, title, message)
-    values (new.user_id, new.id, 'Order status updated', 'Order #' || new.id || ' is now ' || replace(new.status::text, '_', ' ') || '.');
+    insert into public.notifications(user_id, order_id, title, message, body)
+    values (new.user_id, new.id, 'Order status updated', 'Order #' || new.id || ' is now ' || replace(new.status::text, '_', ' ') || '.', 'Order #' || new.id || ' is now ' || replace(new.status::text, '_', ' ') || '.');
   end if;
   return new;
 end;
@@ -69,7 +69,7 @@ create or replace function public.admin_update_delivery_details(
   p_delivery_notes text default null,
   p_proof_of_delivery_url text default null
 )
-returns void language plpgsql security invoker set search_path = public as $$
+returns void language plpgsql security definer set search_path = public as $$
 begin
   if not (public.has_role('delivery_boy') or public.has_role('picker') or public.has_role('store_manager') or public.has_role('super_admin')) then
     raise exception 'ADMIN_REQUIRED';

@@ -1,44 +1,66 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { m } from 'framer-motion'
-import { ArrowUpRight, ClipboardList, PackageCheck, TriangleAlert } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, ClipboardList, PackageCheck, TriangleAlert, TrendingUp } from 'lucide-react'
+import { usePathname } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { can } from '@/lib/permission-definitions'
 import { money } from '@/lib/formatters'
-import { useRealtimeReload } from '@/lib/use-realtime-reload'
+import type { Recent } from '@/types/admin-overview'
 
 type Summary = { today_sales: number; today_orders: number; pending_deliveries: number; low_stock_items: number }
-const cards = [
-  { key: 'today_sales', label: "Today's sales", caption: 'Live from completed orders', icon: ArrowUpRight, tone: 'purple', format: (value: number) => money(value) },
-  { key: 'today_orders', label: 'Orders today', caption: 'Orders placed since midnight', icon: ClipboardList, tone: 'orange', format: (value: number) => String(value) },
-  { key: 'pending_deliveries', label: 'Pending deliveries', caption: 'Open fulfilment statuses', icon: PackageCheck, tone: 'green', format: (value: number) => String(value) },
-  { key: 'low_stock_items', label: 'Low stock items', caption: 'Inventory threshold alerts', icon: TriangleAlert, tone: 'blue', format: (value: number) => String(value) },
-] as const
-
-function AnimatedValue({ value, format }: { value: number; format: (value: number) => string }) {
-  const [display, setDisplay] = useState(0)
-  useEffect(() => {
-    const start = display
-    const duration = 650
-    const started = performance.now()
-    let frame = 0
-    const tick = (now: number) => {
-      const progress = Math.min(1, (now - started) / duration)
-      const eased = 1 - Math.pow(1 - progress, 3)
-      setDisplay(start + (value - start) * eased)
-      if (progress < 1) frame = requestAnimationFrame(tick)
-    }
-    frame = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(frame)
-  }, [value])
-  return <>{format(Number.isInteger(value) ? Math.round(display) : display)}</>
+type Daily = { day: string; revenue: number; orders: number }
+function dateKey(date: Date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` }
+function Delta({ current, previous }: { current: number; previous: number | null }) {
+  if (previous === null || previous <= 0) return <span className="overview-delta neutral">— vs yesterday</span>
+  const value = Math.round(((current - previous) / previous) * 100)
+  const Icon = value >= 0 ? ArrowUpRight : ArrowDownRight
+  return <span className={`overview-delta ${value >= 0 ? 'up' : 'down'}`}><Icon size={12} />{Math.abs(value)}% vs yesterday</span>
 }
 
-export function Stats() {
+export function Stats({ role, orders }: { role: string | null; orders: Recent[] }) {
+  const canRevenue = can(role, 'revenue:view')
+  const pathname = usePathname()
   const [summary, setSummary] = useState<Summary | null>(null)
-  async function load() { const client = createSupabaseBrowserClient(); if (!client) return; const { data } = await client.from('dashboard_summary').select('*').single(); setSummary(data as Summary) }
-  useEffect(() => { void load() }, [])
-  useRealtimeReload('admin-stats-live', ['orders', 'order_items', 'inventory'], () => { void load() })
+  const [yesterday, setYesterday] = useState<Daily | null>(null)
+  const [loading, setLoading] = useState(true)
+  const base = pathname.replace(/\/$/, '')
+  const todayHref = `${base}/orders?date=today`
+  const inventoryHref = `${base}/inventory?stock=low`
+  const deliveryHref = `${base}/delivery`
+  const pickerCount = orders.filter(order => ['placed', 'accepted', 'picking'].includes(order.status)).length
+
+  useEffect(() => {
+    if (!can(role, 'reports:view')) { setLoading(false); return }
+    let active = true
+    async function load() {
+      const client = createSupabaseBrowserClient()
+      if (!client) { if (active) setLoading(false); return }
+      setLoading(true)
+      const yesterdayKey = dateKey(new Date(Date.now() - 86400000))
+      const summaryQuery = client.from('dashboard_summary').select(canRevenue ? '*' : 'today_orders,pending_deliveries,low_stock_items').single()
+      const yesterdayQuery = canRevenue
+        ? client.from('dashboard_daily_sales').select('day,revenue,orders').eq('day', yesterdayKey).maybeSingle()
+        : client.from('dashboard_daily_sales').select('day,orders').eq('day', yesterdayKey).maybeSingle()
+      const [summaryResult, yesterdayResult] = await Promise.all([summaryQuery, yesterdayQuery])
+      if (!active) return
+      setSummary(summaryResult.data as Summary | null)
+      setYesterday(yesterdayResult.data as Daily | null)
+      setLoading(false)
+    }
+    void load()
+    return () => { active = false }
+  }, [role, canRevenue])
+
+  if (!can(role, 'reports:view')) return <div className="stat-grid overview-kpis picker-kpis"><Link className="stat-card stat-card-purple overview-kpi-link" href={`${base}/picker`}><span className="stat-icon"><ClipboardList size={18} /></span><small>Orders waiting to be picked</small><strong>{loading ? '—' : pickerCount}</strong><em>Open your picking queue</em></Link></div>
+
   const value = summary ?? { today_sales: 0, today_orders: 0, pending_deliveries: 0, low_stock_items: 0 }
-  return <div className="stat-grid">{cards.map((card, index) => { const Icon = card.icon; return <m.div className={`stat-card stat-card-${card.tone}`} key={card.key} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .35, delay: index * .07, ease: [0.22, 1, 0.36, 1] }} whileHover={{ y: -4 }}><span className="stat-icon"><Icon size={18} strokeWidth={2.2} /></span><small>{card.label}</small><strong>{summary ? <AnimatedValue value={Number(value[card.key])} format={card.format} /> : <span className="stat-skeleton" />}</strong><em>{card.caption}</em></m.div> })}</div>
+  const cards = [
+    { key: 'today_sales', label: "Today's sales", caption: 'Non-cancelled orders', icon: TrendingUp, tone: 'purple', value: summary ? money(Number(value.today_sales)) : '—', previous: yesterday ? Number(yesterday.revenue) : null, href: todayHref },
+    { key: 'today_orders', label: 'Orders today', caption: 'Placed since midnight', icon: ClipboardList, tone: 'orange', value: summary ? String(value.today_orders) : '—', previous: yesterday ? Number(yesterday.orders) : null, href: todayHref },
+    { key: 'pending_deliveries', label: 'Pending deliveries', caption: 'Open fulfilment work', icon: PackageCheck, tone: 'green', value: summary ? String(value.pending_deliveries) : '—', href: deliveryHref },
+    { key: 'low_stock_items', label: 'Low stock items', caption: 'Low and out of stock', icon: TriangleAlert, tone: 'blue', value: summary ? String(value.low_stock_items) : '—', href: inventoryHref },
+  ].filter(card => card.key !== 'today_sales' || canRevenue)
+  return <div className="stat-grid overview-kpis">{cards.map(card => { const Icon = card.icon; return <Link className={`stat-card stat-card-${card.tone} overview-kpi-link`} href={card.href} key={card.key}><span className="stat-icon"><Icon size={18} strokeWidth={2.2} /></span><small>{card.label}</small><strong>{loading ? <span className="stat-skeleton" /> : card.value}</strong><em>{card.caption}</em>{card.key === 'today_sales' || card.key === 'today_orders' ? !loading && <Delta current={Number(card.key === 'today_sales' ? value.today_sales : value.today_orders)} previous={card.previous ?? null} /> : null}</Link> })}</div>
 }

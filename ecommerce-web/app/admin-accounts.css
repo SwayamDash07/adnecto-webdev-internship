@@ -1,0 +1,81 @@
+.admin-accounts-form{margin-top:20px}
+.admin-accounts .admin-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.admin-accounts .admin-form-grid label{display:grid;align-content:start;gap:7px;min-width:0;color:var(--ink);font-size:12px;font-weight:600}
+.admin-accounts .admin-form-grid input,.admin-accounts .admin-form-grid select{box-sizing:border-box;width:100%;height:44px;border:1px solid var(--line);border-radius:9px;background:#fff;padding:0 12px;color:var(--ink);font:inherit;font-size:13px;font-weight:500;outline:none;transition:border-color .15s,box-shadow .15s}
+.admin-accounts .admin-form-grid input::placeholder{color:#a0a6b4;font-weight:400}
+.admin-select-wrap{position:relative;display:block}
+.admin-accounts .admin-form-grid select{appearance:none;padding-right:38px;cursor:pointer}
+.admin-select-wrap::after{position:absolute;top:50%;right:14px;width:8px;height:8px;border-right:1.7px solid #657087;border-bottom:1.7px solid #657087;content:"";transform:translateY(-70%) rotate(45deg);pointer-events:none}
+.admin-accounts .admin-form-grid input:focus,.admin-accounts .admin-form-grid select:focus{border-color:var(--purple);box-shadow:0 0 0 3px rgb(100 83 220 / 16%)}
+.admin-accounts .admin-form-grid input[aria-invalid="true"]{border-color:#d34f59}
+.admin-field-error{color:#bd3d48;font-size:11px;font-weight:500}
+.admin-add-button{margin-top:22px}
+.admin-accounts .admin-add-button:focus-visible,.admin-accounts .admin-actions button:focus-visible,.admin-delete-dialog button:focus-visible{outline:3px solid rgb(100 83 220 / 35%);outline-offset:2px}
+.admin-list-section{margin-top:24px;padding-top:19px;border-top:1px solid var(--line)}
+.admin-list-section>h3{margin:0 0 12px;color:var(--ink);font-size:14px;font-weight:700}
+.admin-list-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px}
+.admin-list-heading>h3{margin:0;color:var(--ink);font-size:14px;font-weight:700}
+.admin-list-tools{display:flex;align-items:center;justify-content:flex-end;gap:14px;min-width:0}
+.admin-account-search{display:flex;align-items:center;gap:7px;min-width:0}
+.admin-account-search input{box-sizing:border-box;width:190px;height:36px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:0 10px;color:var(--ink);font:inherit;font-size:12px;outline:none;transition:border-color .15s,box-shadow .15s}
+.admin-account-search input::placeholder{color:#9aa2b1}
+.admin-account-search input:focus{border-color:var(--purple);box-shadow:0 0 0 3px rgb(100 83 220 / 14%)}
+.admin-account-search button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 11px;border:1px solid #dcd8f7;border-radius:8px;background:#f8f7ff;color:#5d50c9;font:inherit;font-size:11px;font-weight:650;cursor:pointer;transition:background .15s,border-color .15s}
+.admin-account-search button:hover{border-color:#c9c3f5;background:#f0eeff}
+.admin-account-search button:focus-visible{outline:3px solid rgb(100 83 220 / 25%);outline-offset:2px}
+.admin-role-filter{display:flex;align-items:center;gap:9px;color:#737d91;font-size:11px;font-weight:600;white-space:nowrap}
+.admin-role-filter .admin-select-wrap{width:170px}
+.admin-role-filter .admin-select-wrap select{box-sizing:border-box;width:100%;height:36px;appearance:none;border:1px solid var(--line);border-radius:8px;background:#fff;padding:0 34px 0 10px;color:var(--ink);font:inherit;font-size:12px;text-transform:capitalize;cursor:pointer}
+.admin-role-filter .admin-select-wrap::after{right:12px;width:7px;height:7px}
+.admin-role-filter .admin-select-wrap select:focus-visible{outline:3px solid rgb(100 83 220 / 18%);border-color:var(--purple)}
+.admin-list{overflow:hidden;border:1px solid var(--line);border-radius:12px}
+.admin-list-header,.admin-row{display:grid;grid-template-columns:minmax(140px,1fr) minmax(200px,1.5fr) minmax(135px,.9fr) minmax(150px,auto);align-items:center;gap:16px;padding:12px 15px}
+.admin-list-header{background:#f8f9fc;color:#81899b;font-size:10px;font-weight:700;letter-spacing:.045em;text-transform:uppercase}
+.admin-list-header>:last-child{text-align:right}
+.admin-row{min-height:54px;border-top:1px solid #edf0f5;transition:background-color .15s}
+.admin-row:hover{background:#fafaff}
+.admin-name,.admin-email{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;line-height:1.4}
+.admin-name{color:var(--ink);font-weight:600}
+.admin-email{color:#828a9c;font-weight:400}
+.admin-role-badge{justify-self:start;max-width:100%;border:1px solid #e4e7ee;border-radius:999px;background:#f5f6f9;padding:5px 9px;color:#687185;font-size:10px;font-style:normal;font-weight:650;line-height:1.2;text-transform:capitalize;white-space:nowrap}
+.admin-role-badge.super-admin{border-color:#dfdafd;background:#f0eeff;color:#5548c5}
+.admin-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px}
+.admin-actions button,.admin-delete-dialog button{min-height:34px;padding:7px 12px;border-radius:8px;font-size:11px;font-weight:600;white-space:nowrap}
+.admin-delete-button{border:1px solid #f0cfd1;background:#fff;color:#b5454d;cursor:pointer;transition:background-color .15s,border-color .15s}
+.admin-delete-button:hover:not(:disabled){border-color:#e7b4b8;background:#fff6f6}
+.admin-delete-button:disabled{cursor:not-allowed;opacity:.48}
+.admin-empty-state{display:grid;gap:4px;padding:20px;border:1px dashed #dfe3eb;border-radius:12px;background:#fafbfc;text-align:center}
+.admin-empty-state strong{color:var(--ink);font-size:13px}
+.admin-empty-state span{color:#858da0;font-size:12px}
+.admin-delete-backdrop{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:20px;background:rgb(16 24 44 / 48%);backdrop-filter:blur(3px)}
+.admin-delete-dialog{width:min(420px,100%);border:1px solid var(--line);border-radius:16px;background:#fff;padding:24px;box-shadow:0 20px 70px rgb(12 20 44 / 22%)}
+.admin-delete-dialog h3{margin:0 0 9px;color:var(--ink);font-size:18px}
+.admin-delete-dialog p{margin:0;color:#6e778c;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+.admin-delete-dialog>div{display:flex;justify-content:flex-end;gap:9px;margin-top:22px}
+.admin-delete-dialog button:disabled{cursor:wait;opacity:.65}
+.admin-edit-dialog{display:grid;gap:14px;width:min(440px,100%);border:1px solid var(--line);border-radius:16px;background:#fff;padding:24px;box-shadow:0 20px 70px rgb(12 20 44 / 22%)}
+.admin-edit-dialog h3{margin:0;color:var(--ink);font-size:18px}
+.admin-edit-dialog>p{margin:-6px 0 2px;color:#6e778c;font-size:13px;line-height:1.55;overflow-wrap:anywhere}
+.admin-edit-dialog label{display:grid;gap:7px;color:var(--ink);font-size:12px;font-weight:600}
+.admin-edit-dialog label span{color:#878fa0;font-size:11px;font-weight:400}
+.admin-edit-dialog input{box-sizing:border-box;width:100%;height:42px;border:1px solid var(--line);border-radius:9px;background:#fff;padding:0 11px;color:var(--ink);font:inherit;font-size:13px;outline:none}
+.admin-edit-dialog input:focus{border-color:var(--purple);box-shadow:0 0 0 3px rgb(100 83 220 / 16%)}
+.admin-edit-dialog input[aria-invalid="true"]{border-color:#d34f59}
+.admin-edit-dialog>div{display:flex;justify-content:flex-end;gap:9px;margin-top:5px}
+.admin-edit-dialog button{min-height:36px;padding:8px 13px;border-radius:8px;font-size:11px;font-weight:600}
+.admin-edit-dialog button:focus-visible{outline:3px solid rgb(100 83 220 / 35%);outline-offset:2px}
+.admin-edit-dialog .primary-button:disabled{cursor:wait;opacity:.65}
+.admin-edit-error{margin:0;color:#bd3d48;font-size:12px}
+.role-permissions{margin-top:24px;padding-top:20px;border-top:1px solid var(--line)}.role-permissions h3{margin:0 0 12px;color:var(--ink);font-size:14px}.role-permissions-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px}.role-permissions table{width:100%;border-collapse:collapse;font-size:11px}.role-permissions th,.role-permissions td{padding:9px 11px;border-bottom:1px solid #edf0f5;text-align:center;white-space:nowrap}.role-permissions thead th{background:#f8f9fc;color:#6e7890;font-size:10px}.role-permissions tbody th{text-align:left;color:#59647a;font-weight:550;text-transform:capitalize}.role-permissions td{color:#6658d1;font-weight:700}.role-permissions tr:last-child>*{border-bottom:0}.role-permissions-toggle{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:44px;margin-top:12px;padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:#fff;color:#5d50c9;font:inherit;font-size:12px;font-weight:650;cursor:pointer;transition:background .15s,border-color .15s}.role-permissions-toggle:hover{border-color:#c9c3f5;background:#f8f7ff}.role-permissions-toggle:focus-visible{outline:3px solid rgb(100 83 220 / 30%);outline-offset:2px}.rbac-denied-toast{position:fixed;right:24px;bottom:24px;z-index:140;padding:12px 16px;border:1px solid #f0d6a9;border-radius:10px;background:#fff9ed;color:#805714;font-size:12px;box-shadow:0 8px 28px #15243a1a}
+@media(max-width:700px){
+  .admin-list-header{display:none}
+  .admin-row{grid-template-columns:minmax(0,1fr) auto;gap:5px 12px;padding:13px;margin:0;border-top:1px solid #edf0f5}
+  .admin-row:first-of-type{border-top:0}
+  .admin-name{grid-column:1;grid-row:1;font-size:13px}
+  .admin-role-badge{grid-column:2;grid-row:1}
+  .admin-email{grid-column:1 / -1;grid-row:2}
+  .admin-actions{grid-column:1 / -1;grid-row:3;justify-content:flex-start;padding-top:6px}
+}
+@media(max-width:520px){.admin-accounts .admin-form-grid{grid-template-columns:1fr;gap:14px}.admin-list-header,.admin-row{grid-template-columns:minmax(0,1fr) auto}.admin-accounts-form{margin-top:16px}.admin-add-button{margin-top:20px}}
+@media(max-width:700px){.admin-list-tools{width:100%;justify-content:space-between;flex-wrap:wrap}.admin-account-search{flex:1}.admin-account-search input{width:100%;min-width:0}}
+@media(max-width:480px){.admin-list-heading{align-items:flex-start;flex-direction:column;gap:10px}.admin-list-tools{align-items:stretch;flex-direction:column}.admin-account-search{width:100%}.admin-role-filter{width:100%;justify-content:space-between}.admin-role-filter .admin-select-wrap{width:min(190px,60%)}}

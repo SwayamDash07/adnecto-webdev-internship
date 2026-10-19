@@ -1,6 +1,6 @@
 'use client'
 
-import { type FormEvent, useEffect, useRef, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCart } from '@/lib/cart-store'
 import { useAuthUser } from '@/lib/auth-state'
@@ -19,8 +19,6 @@ export function useSiteHeader() {
   const [badgePulse, setBadgePulse] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [cartOpen, setCartOpen] = useState(false)
-  const [accountMenuOpen, setAccountMenuOpen] = useState(false)
-  const accountMenuRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!totalQuantity) return
     setBadgePulse(true)
@@ -44,13 +42,6 @@ export function useSiteHeader() {
     }, 300)
     return () => window.clearTimeout(timer)
   }, [pathname, query, router, searchParams])
-  useEffect(() => {
-    const closeOnOutsideClick = (event: MouseEvent) => { if (accountMenuRef.current && !accountMenuRef.current.contains(event.target as Node)) setAccountMenuOpen(false) }
-    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setAccountMenuOpen(false) }
-    document.addEventListener('mousedown', closeOnOutsideClick)
-    document.addEventListener('keydown', closeOnEscape)
-    return () => { document.removeEventListener('mousedown', closeOnOutsideClick); document.removeEventListener('keydown', closeOnEscape) }
-  }, [])
   const submitSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const value = query.trim()
@@ -58,5 +49,5 @@ export function useSiteHeader() {
   }
   const name = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0]
   const hideCategoryNav = hiddenCategoryRoutes.some(route => pathname === route || pathname.startsWith(`${route}/`))
-  return { totalQuantity, user, name, query, setQuery, badgePulse, mobileNavOpen, setMobileNavOpen, cartOpen, setCartOpen, accountMenuOpen, setAccountMenuOpen, accountMenuRef, submitSearch, hideCategoryNav }
+  return { totalQuantity, user, name, query, setQuery, badgePulse, mobileNavOpen, setMobileNavOpen, cartOpen, setCartOpen, submitSearch, hideCategoryNav }
 }

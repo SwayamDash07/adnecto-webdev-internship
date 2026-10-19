@@ -36,9 +36,11 @@ export function filterProducts(products: Product[], filters: ProductFilter) {
 
 export function calculateCart(lines: CartLine[]) {
   const subtotal = lines.reduce((total, line) => total + line.product.price * line.quantity, 0)
-  const delivery = subtotal >= 499 ? 0 : 49
+  const mrpSubtotal = lines.reduce((total, line) => total + line.product.oldPrice * line.quantity, 0)
+  const mrpDiscount = lines.reduce((total, line) => total + Math.max(0, line.product.oldPrice - line.product.price) * line.quantity, 0)
+  const delivery = subtotal >= 1000 ? 0 : 49
   const packing = lines.length ? 19 : 0
-  const discount = subtotal >= 3000 ? Math.round(subtotal * 0.1) : 0
+  const discount = 0
   const gst = lines.reduce((total, line) => total + (line.product.price * line.quantity * (line.product.gst ?? 0)) / 100, 0)
-  return { subtotal, delivery, packing, discount, gst, total: Math.max(0, subtotal + gst + delivery + packing - discount) }
+  return { subtotal, mrpSubtotal, mrpDiscount, delivery, packing, discount, gst, total: Math.max(0, subtotal + gst + delivery + packing - discount) }
 }

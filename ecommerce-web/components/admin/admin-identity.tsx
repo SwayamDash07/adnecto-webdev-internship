@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { ROLE_LABELS, type Role } from '@/lib/permission-definitions'
 
 type Profile = { full_name: string; email: string; role_name: string; is_main_admin: boolean }
 
@@ -17,5 +18,5 @@ export function AdminIdentity() {
   }, [])
 
   if (!profile) return null
-  return <div className="sidebar-user"><strong>{profile.full_name}</strong><small>{profile.email}</small><small>{profile.is_main_admin ? 'Main administrator' : profile.role_name.replaceAll('_', ' ')}</small></div>
+  return <div className="sidebar-user"><strong>{profile.full_name}</strong><small>{profile.email}</small><small>{ROLE_LABELS[profile.role_name as Role] ?? profile.role_name.replaceAll('_', ' ')}</small></div>
 }

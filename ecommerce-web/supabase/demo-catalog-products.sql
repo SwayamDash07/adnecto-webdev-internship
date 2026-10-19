@@ -30,7 +30,7 @@ update public.products set
 where id = 5;
 
 update public.products set
-  name = 'IKEA FJÄLLARNIKA Light Warm Duvet 150x200cm', sku = 'DEMO-IKEA-FJALLARNIKA',
+  name = 'IKEA Light Warm Duvet 150x200cm', sku = 'DEMO-IKEA-FJALLARNIKA',
   description = 'A demo listing for the IKEA FJÄLLARNIKA light warm duvet, 150x200cm.',
   mrp = 999, selling_price = 699, rating = 4.8, review_count = 344,
   gst = 12, hsn = '94049099', attributes = jsonb_build_object('badge', 'Popular choice')

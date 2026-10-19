@@ -1,7 +1,12 @@
 import { ModulePage } from '@/components/shared/module-page'
 import { AdminAccounts } from '@/components/admin/admin-accounts'
-import { DeliverySlotManager } from '@/components/admin/delivery-slot-manager'
+import { redirect } from 'next/navigation'
+import { requirePermission, roleHomePath } from '@/lib/permissions'
 
-export default function SettingsPage() {
-  return <ModulePage title="Store settings" description="Configure store identity, locations, delivery slots, tax rules and role permissions." cards={[["Store", "Store profile", "Brand, contact details, business identity and warehouse locations."], ["Slots", "Delivery slots", "Preferred delivery windows and scheduled delivery settings."], ["Roles", "Roles & permissions", "Super admin, store manager, accountant and inventory access."]]}><><AdminAccounts /><DeliverySlotManager /></></ModulePage>
+export default async function SettingsPage() {
+  let profile: Awaited<ReturnType<typeof requirePermission>>
+  try { profile = await requirePermission('team:manage') } catch { redirect('/auth/admin-sign-in?error=not_admin') }
+  const home = roleHomePath(profile.role_name, `/portal/${process.env.NEXT_PUBLIC_ADMIN_ROUTE_TOKEN ?? ''}`)
+  if (!home) redirect('/auth/admin-sign-in?error=not_admin')
+  return <ModulePage title="Team & Access" description="Manage administrator accounts and role permissions." cards={[]}><AdminAccounts currentRole={profile.role_name} /></ModulePage>
 }

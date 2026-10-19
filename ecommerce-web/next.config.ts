@@ -7,6 +7,10 @@ const withBundleAnalyzer = bundleAnalyzer({
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  async redirects() { return [
+    { source: '/customer/returns', destination: '/customer/orders', permanent: false },
+    { source: '/customer/return', destination: '/customer/orders', permanent: false },
+  ] },
   compress: true,
   experimental: {
     optimizePackageImports: ['lucide-react'],
