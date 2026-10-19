@@ -1,5 +1,6 @@
 'use client'
 
+import { useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { m } from 'framer-motion'
 import { Search } from 'lucide-react'
@@ -11,8 +12,14 @@ import { emptyProduct } from '@/constants/admin-product'
 import type { AdminProduct } from '@/types/admin'
 
 export function LiveProductManager() {
+  const searchParams = useSearchParams()
   const [products, setProducts] = useState<AdminProduct[]>([]); const [form, setForm] = useState(emptyProduct); const [editing, setEditing] = useState<number | null>(null); const [image, setImage] = useState<File | null>(null); const [error, setError] = useState(''); const [message, setMessage] = useState(''); const [query, setQuery] = useState(''); const [page, setPage] = useState(1)
   async function load() { const client = createSupabaseBrowserClient(); if (!client) return; const { data, error: queryError } = await client.rpc('admin_list_products'); if (queryError) setError(queryError.message); else setProducts((data ?? []) as AdminProduct[]) }
+  useEffect(() => {
+    if (searchParams.get('created') !== '1') return
+    setMessage('Product created successfully.')
+    window.history.replaceState(null, '', window.location.pathname)
+  }, [searchParams])
   useEffect(() => { void load() }, [])
   useRealtimeReload('admin-products-live', ['products', 'inventory'], () => { void load() })
   function update(key: keyof typeof emptyProduct, value: string) { setForm(current => ({ ...current, [key]: value })) }
