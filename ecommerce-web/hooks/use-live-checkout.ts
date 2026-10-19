@@ -6,13 +6,19 @@ import { useCart } from '@/lib/cart-store'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { loadRazorpay } from '@/lib/payments/razorpay'
 import type { CheckoutAddressRecord, DeliverySlotRecord, RazorpayOrderResponse, ResolvedCheckoutItem } from '@/types/checkout'
+import type { CartLine } from '@/types/catalog'
 
-export function useLiveCheckout() {
-  const { lines, totalQuantity, clear, lineKey } = useCart()
-  const [addressesFromDatabase, setAddressesFromDatabase] = useState<CheckoutAddressRecord[]>([])
-  const [addressId, setAddressId] = useState<number | null>(null)
-  const [slot, setSlot] = useState('Tomorrow, 10 AM - 12 PM')
-  const [deliverySlots, setDeliverySlots] = useState<DeliverySlotRecord[]>([])
+export function useLiveCheckout({ initialCartLines, initialCartReady, initialAddresses, initialDeliverySlots, initialDataError }: { initialCartLines: CartLine[]; initialCartReady: boolean; initialAddresses: CheckoutAddressRecord[]; initialDeliverySlots: DeliverySlotRecord[]; initialDataError: string }) {
+  const cart = useCart()
+  const lines = cart.ready ? cart.lines : initialCartLines
+  const totalQuantity = lines.reduce((total, line) => total + line.quantity, 0)
+  const { clear, lineKey } = cart
+  const ready = cart.ready || initialCartReady
+  const [addressesFromDatabase, setAddressesFromDatabase] = useState<CheckoutAddressRecord[]>(initialAddresses)
+  const [addressId, setAddressId] = useState<number | null>(initialAddresses[0]?.id ?? null)
+  const firstAvailableSlot = initialDeliverySlots.find(item => item.capacity > 0)?.starts_at ?? ''
+  const [slot, setSlot] = useState(firstAvailableSlot)
+  const [deliverySlots, setDeliverySlots] = useState<DeliverySlotRecord[]>(initialDeliverySlots)
   const [instructions, setInstructions] = useState('')
   const [coupon, setCoupon] = useState('')
   const [couponDiscount, setCouponDiscount] = useState(0)
@@ -23,10 +29,38 @@ export function useLiveCheckout() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [orderId, setOrderId] = useState<number | null>(null)
+  const [loadAttempt, setLoadAttempt] = useState(0)
+  const [dataLoading, setDataLoading] = useState(false)
+  const [dataError, setDataError] = useState(initialDataError)
   const summary = calculateCart(lines)
-  const checkoutTotal = Math.max(0, summary.total - couponDiscount)
-  useEffect(() => { void (async () => { const client = createSupabaseBrowserClient(); if (!client) return; const { data } = await client.from('addresses').select('id,label,line1,city,postal_code').order('id'); const loaded = (data ?? []) as CheckoutAddressRecord[]; setAddressesFromDatabase(loaded); setAddressId(loaded[0]?.id ?? null) })() }, [])
-  useEffect(() => { void (async () => { const client = createSupabaseBrowserClient(); if (!client) return; const { data } = await client.from('delivery_slots').select('id,starts_at,ends_at,capacity').gte('starts_at', new Date().toISOString()).order('starts_at').limit(12); const loaded = (data ?? []) as DeliverySlotRecord[]; setDeliverySlots(loaded); if (loaded[0]) setSlot(`${new Date(loaded[0].starts_at).toLocaleString('en-IN')} · ${loaded[0].capacity} places`) })() }, [])
+  // A coupon replaces the automatic offer when it is better; discounts never stack.
+  const appliedDiscount = Math.max(summary.discount, couponDiscount)
+  const checkoutTotal = Math.max(0, summary.total + summary.discount - appliedDiscount)
+  useEffect(() => {
+    let active = true
+    if (loadAttempt === 0) return
+    setDataLoading(true)
+    setDataError('')
+    void (async () => {
+      const client = createSupabaseBrowserClient()
+      if (!client) throw new Error('Checkout data is unavailable. Check your connection and try again.')
+      const [addressResult, slotsResponse] = await Promise.all([
+        client.from('addresses').select('id,label,line1,city,postal_code').order('id'),
+        fetch('/api/delivery-slots', { cache: 'no-store' }),
+      ])
+      if (addressResult.error) throw addressResult.error
+      if (!slotsResponse.ok) throw new Error('Could not load available delivery slots.')
+      const slotResult = await slotsResponse.json() as { slots?: DeliverySlotRecord[] }
+      if (!active) return
+      const loadedAddresses = (addressResult.data ?? []) as CheckoutAddressRecord[]
+      const loadedSlots = slotResult.slots ?? []
+      setAddressesFromDatabase(loadedAddresses)
+      setAddressId(current => current && loadedAddresses.some(address => address.id === current) ? current : loadedAddresses[0]?.id ?? null)
+      setDeliverySlots(loadedSlots)
+      setSlot(current => loadedSlots.some(item => item.starts_at === current && item.capacity > 0) ? current : loadedSlots.find(item => item.capacity > 0)?.starts_at ?? '')
+    })().catch(loadError => { if (active) setDataError(loadError instanceof Error ? loadError.message : 'Could not load checkout details.') }).finally(() => { if (active) setDataLoading(false) })
+    return () => { active = false }
+  }, [loadAttempt])
   useEffect(() => { const savedCoupon = localStorage.getItem('cartly_coupon_code'); if (savedCoupon) setCoupon(savedCoupon) }, [])
   async function placeOrder() {
     setBusy(true); setError('')
@@ -53,7 +87,9 @@ export function useLiveCheckout() {
       if (!product) { setError(`Product not found in Supabase: ${line.product.name}`); setBusy(false); return }
       resolvedItems.push({ product_id: product.id, sku: line.product.sku, name: line.product.name, quantity: line.quantity, substitute: substituteUnavailable })
     }
-    const { data, error: rpcError } = await client.rpc('place_order', { p_address_id: addressId, p_items: resolvedItems, p_payment_method: paymentMethod === 'prepaid' ? 'Razorpay' : 'cod', p_delivery_slot: `${slot}${instructions ? ` · ${instructions}` : ''}${contactless ? ' · Contactless' : ''}`, p_coupon_code: coupon || null })
+    const selected = deliverySlots.find(item => item.starts_at === slot)
+    if (!selected) { setError('Choose an available delivery slot.'); setBusy(false); return }
+    const { data, error: rpcError } = await client.rpc('place_order', { p_address_id: addressId, p_items: resolvedItems, p_payment_method: paymentMethod === 'prepaid' ? 'Razorpay' : 'cod', p_delivery_slot_start: selected.starts_at, p_delivery_slot_end: selected.ends_at, p_delivery_slot_label: `${selected.day}, ${selected.label}`, p_coupon_code: coupon || null, p_delivery_instructions: instructions || null, p_contactless_delivery: contactless, p_substitute_unavailable: substituteUnavailable })
     if (rpcError) {
       const message = rpcError.message ?? ''
       const stockMatch = message.match(/INSUFFICIENT_STOCK:?(\d+)?/i)
@@ -80,5 +116,5 @@ export function useLiveCheckout() {
     if (couponError) setCouponMessage(couponError.message)
     else { const result = (data?.[0] ?? data) as { valid: boolean; discount: number; message: string } | null; setCouponDiscount(result?.valid ? Number(result.discount) : 0); setCouponMessage(result?.message ?? 'Coupon could not be applied.') }
   }
-  return { lines, totalQuantity, clear, lineKey, addressesFromDatabase, addressId, setAddressId, slot, setSlot, deliverySlots, instructions, setInstructions, coupon, setCoupon, couponDiscount, setCouponDiscount, couponMessage, setCouponMessage, paymentMethod, setPaymentMethod, contactless, setContactless, substituteUnavailable, setSubstituteUnavailable, busy, error, orderId, summary, checkoutTotal, placeOrder, applyCoupon }
+  return { lines, totalQuantity, clear, lineKey, ready, addressesFromDatabase, addressId, setAddressId, slot, setSlot, deliverySlots, instructions, setInstructions, coupon, setCoupon, couponDiscount, setCouponDiscount, couponMessage, setCouponMessage, paymentMethod, setPaymentMethod, contactless, setContactless, substituteUnavailable, setSubstituteUnavailable, busy, error, orderId, summary, appliedDiscount, checkoutTotal, placeOrder, applyCoupon, dataLoading, dataError, retryCheckoutData: () => setLoadAttempt(attempt => attempt + 1) }
 }

@@ -1,5 +1,12 @@
 import { SiteHeader } from '@/components/customer/site-header'
 import { LiveCheckoutFlow } from '@/components/customer/live-checkout-flow'
 import { BackButton } from '@/components/shared/back-button'
+import { getCurrentCartSnapshot } from '@/lib/cart-server'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getAvailableDeliverySlots } from '@/lib/delivery-slots-server'
 
-export default function CheckoutPage() { return <><SiteHeader /><main className="module-page"><div className="module-heading"><div><p className="eyebrow">SECURE CHECKOUT</p><h1>Complete your order</h1><p>Choose your delivery preference and payment method.</p></div><BackButton /></div><LiveCheckoutFlow /></main></> }
+export default async function CheckoutPage() {
+  const [cart, supabase, deliverySlots] = await Promise.all([getCurrentCartSnapshot(), createSupabaseServerClient(), getAvailableDeliverySlots()])
+  const { data: addresses, error: addressError } = await supabase.from('addresses').select('id,label,line1,city,postal_code').order('id')
+  return <><SiteHeader /><main className="module-page checkout-page"><div className="module-heading checkout-page-heading"><div><p className="eyebrow">SECURE CHECKOUT</p><h1>Checkout</h1><p>Secure checkout - account required</p></div><BackButton /></div><LiveCheckoutFlow initialCartLines={cart.lines} initialCartReady={cart.isAuthenticated} initialAddresses={(addresses ?? []) as never[]} initialDeliverySlots={deliverySlots} initialDataError={addressError?.message ?? ''} /></main></>
+}
