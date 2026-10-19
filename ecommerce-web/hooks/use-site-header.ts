@@ -5,9 +5,12 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useCart } from '@/lib/cart-store'
 import { useAuthUser } from '@/lib/auth-state'
 import { hiddenCategoryRoutes } from '@/constants/site-header'
+import { useInitialCartCount } from '@/components/customer/cart/cart-count-provider'
 
 export function useSiteHeader() {
-  const { totalQuantity } = useCart()
+  const cart = useCart()
+  const initialCartCount = useInitialCartCount()
+  const totalQuantity = cart.ready ? cart.totalQuantity : initialCartCount
   const user = useAuthUser()
   const router = useRouter()
   const pathname = usePathname()

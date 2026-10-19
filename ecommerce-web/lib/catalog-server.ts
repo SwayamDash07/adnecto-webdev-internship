@@ -7,15 +7,19 @@ function client() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } })
 }
 
-export async function getCatalogProducts(filters?: { categorySlug?: string; productId?: number }) {
+export async function getCatalogProducts(filters?: { categorySlug?: string; productId?: number; productIds?: number[] }) {
+  if (filters?.productIds && filters.productIds.length === 0) return []
   const supabase = client()
   const select = filters?.categorySlug ? catalogSelect().replace('categories(name,slug)', 'categories!inner(name,slug)') : catalogSelect()
   const query = supabase.from('products').select(select).eq('is_active', true).order('created_at', { ascending: false })
   if (filters?.productId) query.eq('id', filters.productId)
+  if (filters?.productIds) query.in('id', filters.productIds)
   if (filters?.categorySlug) query.eq('categories.slug', filters.categorySlug)
   const [{ data, error }, { data: availability, error: availabilityError }] = await Promise.all([
     query.range(0, 99),
-    supabase.from('catalog_product_availability').select('product_id,in_stock'),
+    filters?.productIds
+      ? supabase.from('catalog_product_availability').select('product_id,in_stock').in('product_id', filters.productIds)
+      : supabase.from('catalog_product_availability').select('product_id,in_stock'),
   ])
   if (error) throw new Error(`Catalog query failed: ${error.message}`)
   if (availabilityError) throw new Error(`Catalog availability query failed: ${availabilityError.message}`)

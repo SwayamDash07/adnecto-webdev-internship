@@ -8,6 +8,7 @@ type Listener = () => void
 type State = { lines: CartLine[]; ready: boolean }
 const EMPTY_STATE: State = { lines: [], ready: false }
 const STORAGE_KEY = 'cartly-guest-cart'
+const SESSION_KEY = 'cartly-cart-session'
 export const MAX_CART_QUANTITY = 99
 let state: State = EMPTY_STATE
 const listeners = new Set<Listener>()
@@ -19,6 +20,20 @@ const available = (product: Product) => product.stockIsAvailabilityOnly
 
 function key(line: Pick<CartLine, 'product' | 'variant'>) { return `${line.product.id}:${line.variant ?? ''}` }
 
+function getSessionId() {
+  if (typeof window === 'undefined') return ''
+  let id = window.localStorage.getItem(SESSION_KEY)
+  if (!id) { id = window.crypto.randomUUID(); window.localStorage.setItem(SESSION_KEY, id) }
+  return id
+}
+
+export function getGuestCartSessionId() { return getSessionId() }
+
+export function readGuestCartSnapshot(): CartLine[] {
+  if (typeof window === 'undefined') return []
+  try { return JSON.parse(window.localStorage.getItem(STORAGE_KEY) || '[]') as CartLine[] }
+  catch { return [] }
+}
 export const cartStore = {
   getSnapshot: () => state,
   subscribe: (listener: Listener) => { listeners.add(listener); return () => listeners.delete(listener) },
@@ -44,6 +59,8 @@ export const cartStore = {
     state = { ...state, lines: state.lines.map(line => key(line) === lineKey ? { ...line, quantity: Math.min(available(line.product), Math.max(0, quantity)) } : line).filter(line => line.quantity > 0) }
     saveGuest(); emit()
   },
+  replaceFromServer: (lines: CartLine[]) => { state = { lines, ready: true }; emit() },
+  replaceGuestSnapshot: (lines: CartLine[]) => { state = { lines, ready: true }; saveGuest(); emit() },
   remove: (lineKey: string) => { state = { ...state, lines: state.lines.filter(line => key(line) !== lineKey) }; saveGuest(); emit() },
   clear: () => { state = { ...state, lines: [] }; saveGuest(); emit() },
   mergeForUser: async () => {
