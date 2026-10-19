@@ -1,7 +1,7 @@
 'use client'
 
 import { type FormEvent, useEffect, useRef, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCart } from '@/lib/cart-store'
 import { useAuthUser } from '@/lib/auth-state'
 import { hiddenCategoryRoutes } from '@/constants/site-header'
@@ -14,6 +14,7 @@ export function useSiteHeader() {
   const user = useAuthUser()
   const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [query, setQuery] = useState('')
   const [badgePulse, setBadgePulse] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
@@ -26,6 +27,23 @@ export function useSiteHeader() {
     const timer = window.setTimeout(() => setBadgePulse(false), 500)
     return () => window.clearTimeout(timer)
   }, [totalQuantity])
+  useEffect(() => {
+    if (!['/customer/search', '/customer/offers', '/customer/new-arrivals'].includes(pathname)) return
+    setQuery(searchParams.get('q') ?? '')
+  }, [pathname, searchParams])
+  useEffect(() => {
+    if (!['/customer/search', '/customer/offers', '/customer/new-arrivals'].includes(pathname)) return
+    const value = query.trim()
+    if ((searchParams.get('q') ?? '') === value) return
+    const timer = window.setTimeout(() => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (value) params.set('q', value)
+      else params.delete('q')
+      const queryString = params.toString()
+      router.replace(`${pathname}${queryString ? `?${queryString}` : ''}`, { scroll: false })
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [pathname, query, router, searchParams])
   useEffect(() => {
     const closeOnOutsideClick = (event: MouseEvent) => { if (accountMenuRef.current && !accountMenuRef.current.contains(event.target as Node)) setAccountMenuOpen(false) }
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setAccountMenuOpen(false) }

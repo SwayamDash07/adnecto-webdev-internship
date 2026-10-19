@@ -38,5 +38,5 @@ export const wishlistStore = {
 export function useWishlist() {
   const saved = useSyncExternalStore(wishlistStore.subscribe, wishlistStore.getSnapshot, () => EMPTY_WISHLIST)
   useEffect(() => { void wishlistStore.hydrate() }, [])
-  return { saved, toggle: wishlistStore.toggle }
+  return { saved, ready, toggle: wishlistStore.toggle }
 }
