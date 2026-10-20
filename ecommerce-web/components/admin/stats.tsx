@@ -1,17 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
 import { ArrowDownRight, ArrowUpRight, ClipboardList, PackageCheck, TriangleAlert, TrendingUp } from 'lucide-react'
 import { usePathname } from 'next/navigation'
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { can } from '@/lib/permission-definitions'
 import { money } from '@/lib/formatters'
 import type { Recent } from '@/types/admin-overview'
+import type { AdminDailySales, AdminSummary } from '@/lib/admin-overview-stats'
 
-type Summary = { today_sales: number; today_orders: number; pending_deliveries: number; low_stock_items: number }
-type Daily = { day: string; revenue: number; orders: number }
-function dateKey(date: Date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` }
 function Delta({ current, previous }: { current: number; previous: number | null }) {
   if (previous === null || previous <= 0) return <span className="overview-delta neutral">— vs yesterday</span>
   const value = Math.round(((current - previous) / previous) * 100)
@@ -19,39 +15,17 @@ function Delta({ current, previous }: { current: number; previous: number | null
   return <span className={`overview-delta ${value >= 0 ? 'up' : 'down'}`}><Icon size={12} />{Math.abs(value)}% vs yesterday</span>
 }
 
-export function Stats({ role, orders }: { role: string | null; orders: Recent[] }) {
+export function Stats({ role, orders, initialSummary, initialYesterday }: { role: string | null; orders: Recent[]; initialSummary: AdminSummary | null; initialYesterday: AdminDailySales | null }) {
   const canRevenue = can(role, 'revenue:view')
   const pathname = usePathname()
-  const [summary, setSummary] = useState<Summary | null>(null)
-  const [yesterday, setYesterday] = useState<Daily | null>(null)
-  const [loading, setLoading] = useState(true)
+  const summary = initialSummary
+  const yesterday = initialYesterday
+  const loading = false
   const base = pathname.replace(/\/$/, '')
   const todayHref = `${base}/orders?date=today`
   const inventoryHref = `${base}/inventory?stock=low`
   const deliveryHref = `${base}/delivery`
   const pickerCount = orders.filter(order => ['placed', 'accepted', 'picking'].includes(order.status)).length
-
-  useEffect(() => {
-    if (!can(role, 'reports:view')) { setLoading(false); return }
-    let active = true
-    async function load() {
-      const client = createSupabaseBrowserClient()
-      if (!client) { if (active) setLoading(false); return }
-      setLoading(true)
-      const yesterdayKey = dateKey(new Date(Date.now() - 86400000))
-      const summaryQuery = client.from('dashboard_summary').select(canRevenue ? '*' : 'today_orders,pending_deliveries,low_stock_items').single()
-      const yesterdayQuery = canRevenue
-        ? client.from('dashboard_daily_sales').select('day,revenue,orders').eq('day', yesterdayKey).maybeSingle()
-        : client.from('dashboard_daily_sales').select('day,orders').eq('day', yesterdayKey).maybeSingle()
-      const [summaryResult, yesterdayResult] = await Promise.all([summaryQuery, yesterdayQuery])
-      if (!active) return
-      setSummary(summaryResult.data as Summary | null)
-      setYesterday(yesterdayResult.data as Daily | null)
-      setLoading(false)
-    }
-    void load()
-    return () => { active = false }
-  }, [role, canRevenue])
 
   if (!can(role, 'reports:view')) return <div className="stat-grid overview-kpis picker-kpis"><Link className="stat-card stat-card-purple overview-kpi-link" href={`${base}/picker`}><span className="stat-icon"><ClipboardList size={18} /></span><small>Orders waiting to be picked</small><strong>{loading ? '—' : pickerCount}</strong><em>Open your picking queue</em></Link></div>
 

@@ -8,8 +8,9 @@ import { useAdminOverview } from '@/hooks/use-admin-overview'
 import { RecentOrdersPanel } from './overview/RecentOrdersPanel'
 import { can } from '@/lib/permission-definitions'
 import { NeedsAttentionPanel } from './overview/NeedsAttentionPanel'
+import type { AdminDailySales, AdminSummary } from '@/lib/admin-overview-stats'
 
-export function Overview({ role, initialOrders, initialLateOrders, initialLowStock, initialError }: { role: string | null; initialOrders: import('@/types/admin-overview').Recent[]; initialLateOrders: import('@/types/admin-overview').LateOrder[]; initialLowStock: import('@/types/admin-overview').LowStock[]; initialError: string }) {
+export function Overview({ role, initialOrders, initialLateOrders, initialLowStock, initialError, initialSummary, initialYesterday }: { role: string | null; initialOrders: import('@/types/admin-overview').Recent[]; initialLateOrders: import('@/types/admin-overview').LateOrder[]; initialLowStock: import('@/types/admin-overview').LowStock[]; initialError: string; initialSummary: AdminSummary | null; initialYesterday: AdminDailySales | null }) {
   const pathname = usePathname()
   const { orders, lateOrders, lowStock, loading, error, reload } = useAdminOverview(role, { initialOrders, initialLateOrders, initialLowStock, initialError })
   const base = pathname.replace(/\/$/, '')
@@ -17,7 +18,7 @@ export function Overview({ role, initialOrders, initialLateOrders, initialLowSto
   const inventoryHref = `${base}/inventory?stock=low`
   const deliveryHref = `${base}/delivery`
   return <div className="admin-overview overview-today-page">
-    <Stats role={role} orders={orders} />
+    <Stats role={role} orders={orders} initialSummary={initialSummary} initialYesterday={initialYesterday} />
     {can(role, 'reports:view') && <div className="overview-report-link"><span>Need the longer-term picture?</span><Link href={`${base}/reports`}>View full report <ArrowRight size={14} /></Link></div>}
     {error && <div className="admin-alert" role="alert"><CircleAlert size={17} />{error}</div>}
     <div className="overview-action-grid">
