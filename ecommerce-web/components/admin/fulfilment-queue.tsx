@@ -21,8 +21,8 @@ import {
   X,
 } from "lucide-react";
 
-type Queue = "picker" | "delivery";
-type FulfilmentOrder = {
+export type Queue = "picker" | "delivery";
+export type FulfilmentOrder = {
   order_id: number;
   customer_name: string;
   total: number | null;
@@ -98,17 +98,17 @@ function lateBy(order: FulfilmentOrder, now: Date) {
   return `Late by ${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 }
 
-export function FulfilmentQueue({ queue }: { queue: Queue }) {
+export function FulfilmentQueue({ queue, initialOrders, initialError, initialFilters }: { queue: Queue; initialOrders: FulfilmentOrder[]; initialError: string; initialFilters: { search: string; status: string; sort: string } }) {
   const now = useIstNow();
-  const [orders, setOrders] = useState<FulfilmentOrder[]>([]);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [orders, setOrders] = useState<FulfilmentOrder[]>(initialOrders);
+  const [error, setError] = useState(initialError);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [highlightIds, setHighlightIds] = useState<number[]>([]);
-  const [activeFilter, setActiveFilter] = useState<TaskState>("all");
-  const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<SortMode>("urgent");
+  const [activeFilter, setActiveFilter] = useState<TaskState>((initialFilters.status || "all") as TaskState);
+  const [query, setQuery] = useState(initialFilters.search);
+  const [sort, setSort] = useState<SortMode>((initialFilters.sort || "urgent") as SortMode);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [toast, setToast] = useState<{ text: string; error?: boolean } | null>(
     null,
@@ -129,7 +129,7 @@ export function FulfilmentQueue({ queue }: { queue: Queue }) {
   const demoButton = useRef<HTMLButtonElement>(null);
   const demoDialog = useRef<HTMLElement>(null);
   const demoSubmitting = useRef(false);
-  const orderIds = useRef<number[]>([]);
+  const orderIds = useRef<number[]>(initialOrders.map(order => order.order_id));
 
   const load = useCallback(
     async (quiet = false) => {
@@ -169,7 +169,6 @@ export function FulfilmentQueue({ queue }: { queue: Queue }) {
 
   useEffect(() => {
     const client = createSupabaseBrowserClient();
-    void load();
     if (client) {
       const channel = client
         .channel(`fulfilment-${queue}`)
@@ -193,6 +192,17 @@ export function FulfilmentQueue({ queue }: { queue: Queue }) {
       if (autoRefresh.current) clearInterval(autoRefresh.current);
     };
   }, [queue, load]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const url = new URL(window.location.href);
+      if (query.trim()) url.searchParams.set('search', query.trim()); else url.searchParams.delete('search');
+      if (activeFilter !== 'all') url.searchParams.set('status', activeFilter); else url.searchParams.delete('status');
+      if (sort !== 'urgent') url.searchParams.set('sort', sort); else url.searchParams.delete('sort');
+      window.history.replaceState(null, '', url.pathname + url.search);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [query, activeFilter, sort]);
 
   const filteredOrders = useMemo(() => {
     const rows = orders.filter((order) => {
