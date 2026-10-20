@@ -15,22 +15,31 @@ import { SupportChatThread, type SupportChatMessage } from '@/components/shared/
 export type Complaint = { complaint_id: number; source:'staff'|'customer'; order_id: number|null; customer_name: string; customer_email: string; issue_type: string; severity: string; status: string; assigned_to: string | null; assigned_name: string | null; orders_status_at_filing: string; current_order_status: string; created_at: string; updated_at: string; resolved_at: string|null; raised_by: string; raised_by_name: string; notes: string }
 type Detail = { complaint: Record<string, any>; order: Record<string, any>; events: Array<Record<string, any>>; order_history: Array<Record<string, any>> }
 type Manager = { user_id: string; full_name: string }
+function normalizeDetail(id: number, value: unknown): Detail {
+  const raw = value as { ticket: Record<string, unknown>; order: Record<string, unknown> | null; events: Array<Record<string, unknown>>; order_history: Array<Record<string, unknown>>; orderTimes?: Record<string, unknown> }
+  const normalized = id < 0
+    ? { complaint: { ...raw.ticket, id: -Number(raw.ticket.id), source: 'customer', issue_type: raw.ticket.issue_type, severity: raw.ticket.priority, notes: raw.ticket.message, raised_by_name: raw.ticket.raised_by_name }, order: raw.order, events: raw.events, order_history: raw.order_history }
+    : raw
+  if (normalized.order && raw.orderTimes) normalized.order = { ...normalized.order, ...raw.orderTimes }
+  return normalized as Detail
+}
 const issueLabels: Record<string,string> = { late_delivery:'Late delivery',wrong_item:'Wrong item',damaged:'Damaged item',picker_issue:'Picker issue',payment_refund:'Payment / refund',other:'Other',wrong_update:'Wrong or missing update',change_address_slot:'Change address or slot',payment_problem:'Payment problem',delivered_damaged:'Damaged or defective',missing_item:'Missing item',quality_problem:'Quality problem',invoice_problem:'Billing or invoice',refund_not_received:'Refund not received',cancelled_without_request:'Cancelled without request',account_login:'Account or login',payment_coupon:'Payment or coupon',product_question:'Product question' }
 const severityOrder: Record<string,number> = { high:0,medium:1,low:2 }
 function relative(value: string) { const age=Date.now()-Date.parse(value); const hours=Math.floor(age/3600000); return hours<24?`${Math.max(0,hours)}h ago`:`${Math.floor(hours/24)}d ago` }
 function durationLabel(milliseconds: number) { const hours=Math.max(0,Math.round(milliseconds/3600000)); return hours<24?`${hours}h`:`${Math.floor(hours/24)}d` }
 
-export function ComplaintsWorkspace({ role, initialRows, initialUnreadTicketIds, initialManagers, initialOrders, initialUserId, initialError }: { role: string; initialRows: Complaint[]; initialUnreadTicketIds: number[]; initialManagers: Manager[]; initialOrders: import('./ComplaintComposer').ComplaintOrder[]; initialUserId: string; initialError: string }) {
+export function ComplaintsWorkspace({ role, initialRows, initialUnreadTicketIds, initialManagers, initialOrders, initialUserId, initialError, initialSelectedId, initialDetail, initialDetailError }: { role: string; initialRows: Complaint[]; initialUnreadTicketIds: number[]; initialManagers: Manager[]; initialOrders: import('./ComplaintComposer').ComplaintOrder[]; initialUserId: string; initialError: string; initialSelectedId: number | null; initialDetail: unknown; initialDetailError: string }) {
   const now=useIstNow()
   const router = useRouter()
   const [rows,setRows]=useState<Complaint[]>(initialRows)
   const [unreadTicketIds,setUnreadTicketIds]=useState<number[]>(initialUnreadTicketIds)
   const [managers]=useState<Manager[]>(initialManagers)
-  const [detail,setDetail]=useState<Detail|null>(null)
-  const [selectedId,setSelectedId]=useState<number|null>(null)
+  const normalizedInitialDetail = initialSelectedId !== null && initialDetail ? normalizeDetail(initialSelectedId, initialDetail) : null
+  const [detail,setDetail]=useState<Detail|null>(normalizedInitialDetail)
+  const [selectedId,setSelectedId]=useState<number|null>(initialSelectedId)
   const [userId]=useState(initialUserId)
   const [loading,setLoading]=useState(false)
-  const [detailLoading,setDetailLoading]=useState(false)
+  const [detailLoading,setDetailLoading]=useState(Boolean(initialSelectedId !== null && !initialDetail && !initialDetailError))
   const [error,setError]=useState(initialError)
   const [query,setQuery]=useState('')
   const [status,setStatus]=useState('all')
@@ -62,10 +71,19 @@ export function ComplaintsWorkspace({ role, initialRows, initialUnreadTicketIds,
   const load=useCallback(()=>{setLoading(true);router.refresh()},[router])
   const loadDetail=useCallback(async(id:number)=>{
     setSelectedId(id);setDetailLoading(true)
-    const customer=id<0;const {data,error:detailError}=await getComplaintDetail(id)
-    if(detailError||!data){setError(detailError);setDetail(null)}else{const raw=data as any;const normalized=customer?{complaint:{...raw.ticket,id:-Number(raw.ticket.id),source:'customer',issue_type:raw.ticket.issue_type,severity:raw.ticket.priority,notes:raw.ticket.message,raised_by_name:raw.ticket.raised_by_name},order:raw.order,events:raw.events,order_history:raw.order_history}:raw;if(normalized.order&&raw.orderTimes)normalized.order={...normalized.order,...raw.orderTimes};setDetail(normalized as Detail);setNextStatus(String(normalized.complaint.status));setNextAssignee(String(normalized.complaint.assigned_to??''));setComment('');setResolution('');setInternalNote(false)}
+    const {data,error:detailError}=await getComplaintDetail(id)
+    if(detailError||!data){setError(detailError);setDetail(null)}else{const normalized=normalizeDetail(id,data);setDetail(normalized);setNextStatus(String(normalized.complaint.status));setNextAssignee(String(normalized.complaint.assigned_to??''));setComment('');setResolution('');setInternalNote(false)}
     setDetailLoading(false)
   },[])
+  useEffect(()=>{
+    if(initialSelectedId===null)return
+    setSelectedId(initialSelectedId)
+    const normalized = initialDetail ? normalizeDetail(initialSelectedId,initialDetail) : null
+    setDetail(normalized)
+    if(normalized){setNextStatus(String(normalized.complaint.status));setNextAssignee(String(normalized.complaint.assigned_to??''))}
+    setError(initialDetailError)
+    setDetailLoading(!initialDetail&& !initialDetailError)
+  },[initialSelectedId,initialDetail,initialDetailError])
   useEffect(()=>{setRows(initialRows);setUnreadTicketIds(initialUnreadTicketIds);setError(initialError);setLoading(false)},[initialRows,initialUnreadTicketIds,initialError])
   useRealtimeReload('admin-complaints-live',['complaints','complaint_events','support_tickets','support_ticket_events'],()=>{router.refresh();if(selectedId)void loadDetail(selectedId)})
 
@@ -104,7 +122,7 @@ export function ComplaintsWorkspace({ role, initialRows, initialUnreadTicketIds,
   useEffect(()=>{if(!selectedId)return;const channelClient=createSupabaseBrowserClient();if(!channelClient)return;let active=true;const channel=channelClient.channel(`complaint-drawer-${selectedId}-${crypto.randomUUID()}`).on('postgres_changes',{event:'*',schema:'public',table:selectedId<0?'support_ticket_events':'complaint_events'},payload=>{const newRow=payload.new as Record<string,unknown>;if(selectedId<0?Number(newRow.ticket_id)===Math.abs(selectedId):Number(newRow.complaint_id)===selectedId)void loadDetail(selectedId)}).subscribe(state=>{if(active)setLive(state==='SUBSCRIBED')});const timer=window.setInterval(()=>void loadDetail(selectedId),30000);return()=>{active=false;window.clearInterval(timer);void channelClient.removeChannel(channel)}},[selectedId,loadDetail])
   useEffect(()=>{if(!selectedId)return;const id=window.setTimeout(()=>composerRef.current?.focus(),80);return()=>window.clearTimeout(id)},[selectedId,detailLoading])
   useEffect(()=>{if(!selectedId)return;function onKey(event:KeyboardEvent){if(event.key==='Escape'){event.preventDefault();closeDetail()}if(event.key==='Tab'&&drawerRef.current){const nodes=drawerRef.current.querySelectorAll<HTMLElement>('button:not([disabled]),textarea:not([disabled]),input:not([disabled]),[tabindex="0"]');if(!nodes.length)return;const first=nodes[0],last=nodes[nodes.length-1];if(!drawerRef.current.contains(document.activeElement)){event.preventDefault();first.focus()}else if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}}}window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey)},[selectedId,comment])
-  useEffect(()=>{const key=new URLSearchParams(window.location.search).get('complaint');if(!key)return;const id=idForKey(key);if(id===null)return;setSelectedId(id);void loadDetail(id);void markRead(id);const canonical=keyFor(id);if(canonical!==key){const url=new URL(window.location.href);url.searchParams.set('complaint',canonical);router.replace(url.pathname+url.search,{scroll:false})}},[loadDetail,router])
+  useEffect(()=>{const key=new URLSearchParams(window.location.search).get('complaint');if(!key)return;const id=idForKey(key);if(id===null)return;setSelectedId(id);if(id!==initialSelectedId||!initialDetail)void loadDetail(id);void markRead(id);const canonical=keyFor(id);if(canonical!==key){const url=new URL(window.location.href);url.searchParams.set('complaint',canonical);router.replace(url.pathname+url.search,{scroll:false})}},[initialDetail,initialSelectedId,loadDetail,router])
 
   return <div className="complaints-workspace">
     <div className="complaint-stats"><article><small>Open</small><strong>{loading?'—':openCount}</strong></article><article><small>In progress</small><strong>{loading?'—':progressCount}</strong></article><article><small>Resolved this week</small><strong>{loading?'—':resolvedWeek}</strong></article><article><small>Avg. resolution time</small><strong>{loading?'—':avgResolution}</strong></article></div>
