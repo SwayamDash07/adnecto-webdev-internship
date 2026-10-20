@@ -1,15 +1,11 @@
-'use client'
-
-import { Menu } from 'lucide-react'
 import { Logo } from '@/components/shared/logo'
-import { CartDrawer } from '@/components/shared/cart-drawer'
-import { useSiteHeader } from '@/hooks/use-site-header'
+import { HeaderStateProvider } from './header/header-state'
 import { TopStrip } from './header/top-strip'
 import { HeaderSearch } from './header/header-search'
 import { HeaderActions } from './header/header-actions'
-import { CategoryNav } from './header/category-nav'
+import { CategoryNav, HeaderMenuButton } from './header/category-nav'
+import { HeaderCartDrawer } from './header/header-cart-drawer'
 
 export function SiteHeader() {
-  const header = useSiteHeader()
-  return <><TopStrip /><header className="site-header">{!header.hideCategoryNav && <button type="button" className="mobile-menu-button" aria-label="Toggle category menu" aria-expanded={header.mobileNavOpen} onClick={() => header.setMobileNavOpen(value => !value)}><Menu size={20} /></button>}<Logo /><HeaderSearch query={header.query} setQuery={header.setQuery} submitSearch={header.submitSearch} /><HeaderActions totalQuantity={header.totalQuantity} badgePulse={header.badgePulse} setCartOpen={header.setCartOpen} user={header.user} name={header.name} /></header>{!header.hideCategoryNav && <CategoryNav open={header.mobileNavOpen} />}<CartDrawer open={header.cartOpen} onClose={() => header.setCartOpen(false)} /></>
+  return <HeaderStateProvider><TopStrip /><header className="site-header"><HeaderMenuButton /><Logo /><HeaderSearch /><HeaderActions /></header><CategoryNav /><HeaderCartDrawer /></HeaderStateProvider>
 }
