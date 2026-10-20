@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Check, ChevronLeft, ChevronRight, CircleAlert, Copy, Mail, PackagePlus, Plus, RefreshCw, Search, X } from 'lucide-react'
 import { AdminShell } from '../admin-shell'
 import { Can } from '@/lib/use-can'
@@ -15,6 +16,8 @@ const date = (value: string) => new Date(value).toLocaleDateString('en-IN', { da
 const poNumber = (order: PurchaseOrder) => `PO-${String(order.purchase_order_id).padStart(4, '0')}`
 
 export function LivePurchaseManagerV2({ initialOrders, initialProducts, initialName, initialError, initialFilters }: { initialOrders: PurchaseOrder[]; initialProducts: AdminProduct[]; initialName: string; initialError: string; initialFilters: { search: string; status: string; supplier: string; sort: string; page: string } }) {
+  const router = useRouter()
+  const [, startTransition] = useTransition()
   const [orders, setOrders] = useState<PurchaseOrder[]>(initialOrders)
   const [products, setProducts] = useState<AdminProduct[]>(initialProducts)
   const [loading, setLoading] = useState(false)
@@ -39,19 +42,9 @@ export function LivePurchaseManagerV2({ initialOrders, initialProducts, initialN
   const [copied, setCopied] = useState(false)
   const [adminName, setAdminName] = useState(initialName)
 
-  async function load() {
-    setLoading(true); setError('')
-    const client = createSupabaseBrowserClient()
-    if (!client) { setError('Supabase is not configured.'); setLoading(false); return }
-    const [ordersResult, productsResult, profileResult] = await Promise.all([client.rpc('admin_list_purchase_orders'), client.rpc('admin_list_products'), client.rpc('get_my_admin_profile')])
-    if (ordersResult.error) setError(ordersResult.error.message)
-    else setOrders((ordersResult.data ?? []) as PurchaseOrder[])
-    if (!productsResult.error) setProducts((productsResult.data ?? []) as AdminProduct[])
-    const profile = profileResult.data?.[0]
-    if (profile?.full_name) setAdminName(String(profile.full_name))
-    setLoading(false)
-  }
-  useEffect(() => { const timer = window.setTimeout(() => { const url = new URL(window.location.href); const values = { search: query.trim(), status: status === 'all' ? '' : status, supplier: supplier === 'all' ? '' : supplier, sort: sort === 'newest' ? '' : sort, page: page > 1 ? String(page) : '' }; for (const [key, value] of Object.entries(values)) { if (value) url.searchParams.set(key, value); else url.searchParams.delete(key) } window.history.replaceState(null, '', url.pathname + url.search) }, 300); return () => window.clearTimeout(timer) }, [query, status, supplier, sort, page])
+  useEffect(() => { setOrders(initialOrders); setProducts(initialProducts); setError(initialError); setAdminName(initialName); setLoading(false) }, [initialOrders, initialProducts, initialName, initialError])
+  function load() { setLoading(true); startTransition(() => router.refresh()) }
+  useEffect(() => { const timer = window.setTimeout(() => { const url = new URL(window.location.href); const values = { search: query.trim(), status: status === 'all' ? '' : status, supplier: supplier === 'all' ? '' : supplier, sort: sort === 'newest' ? '' : sort, page: page > 1 ? String(page) : '' }; for (const [key, value] of Object.entries(values)) { if (value) url.searchParams.set(key, value); else url.searchParams.delete(key) } startTransition(() => router.replace(url.pathname + url.search, { scroll: false })) }, 300); return () => window.clearTimeout(timer) }, [query, status, supplier, sort, page, router])
   useRealtimeReload('admin-purchase-orders-v2-live', ['purchase_orders', 'purchase_items', 'products', 'inventory'], () => { void load() })
 
   const suppliers = useMemo(() => Array.from(new Set(orders.map(order => order.supplier_name).filter(Boolean))).sort((a, b) => a.localeCompare(b)), [orders])
