@@ -1,20 +1,20 @@
 'use client'
 
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { ChevronDown, ChevronUp, Search } from 'lucide-react'
 import { MAIN_ADMIN_ROLE, MANAGER_ROLE, PERMISSIONS, ROLE_KEYS, ROLE_LABELS, ROLE_PERMISSIONS, type Role } from '@/lib/permission-definitions'
 
-type Admin = { id: string; email: string; full_name: string; role_name: string; is_current?: boolean }
+export type Admin = { id: string; email: string; full_name: string; role_name: string; is_current?: boolean }
 type FieldErrors = Partial<Record<'fullName' | 'email' | 'password', string>>
 const roleLabel = (role: string) => ROLE_LABELS[role as Role] ?? role.replaceAll('_', ' ')
 
-export function AdminAccounts({ currentRole }: { currentRole: string }) {
+export function AdminAccounts({ currentRole, initialAdmins, initialError }: { currentRole: string; initialAdmins: Admin[]; initialError: string }) {
   const isMainAdmin = currentRole === MAIN_ADMIN_ROLE
   const roles = ROLE_KEYS.filter(role => role !== MAIN_ADMIN_ROLE && (isMainAdmin || role !== 'admin'))
-  const [admins, setAdmins] = useState<Admin[]>([])
+  const [admins, setAdmins] = useState<Admin[]>(initialAdmins)
   const [form, setForm] = useState({ email: '', fullName: '', password: '', role: MANAGER_ROLE })
   const [message, setMessage] = useState('')
-  const [error, setError] = useState('')
+  const [error, setError] = useState(initialError)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [adding, setAdding] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -35,8 +35,6 @@ export function AdminAccounts({ currentRole }: { currentRole: string }) {
     if (response.ok) setAdmins(await response.json() as Admin[])
     else setError((await response.json()).error || 'Unable to load administrator accounts.')
   }
-
-  useEffect(() => { void load() }, [])
 
   function validateForm() {
     const errors: FieldErrors = {}
