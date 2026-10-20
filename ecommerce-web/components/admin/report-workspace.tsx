@@ -1,12 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { BarChart3, CalendarDays, Download, PackageSearch, RefreshCw, ShoppingBag, TrendingUp, TriangleAlert } from 'lucide-react'
 import { AdminShell } from './admin-shell'
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { money } from '@/lib/formatters'
 import { useRealtimeReload } from '@/lib/use-realtime-reload'
 
@@ -41,6 +40,8 @@ function MiniSparkline({ values }: { values: number[] }) {
 
 export function ReportWorkspace({ initialData }: { initialData: { period: string; from: string; to: string; customFrom: string; customTo: string; sales: SalesRow[]; products: ProductRow[]; inventory: InventoryRow[]; error: string } }) {
   const pathname = usePathname()
+  const router = useRouter()
+  const [, startTransition] = useTransition()
   const [period, setPeriod] = useState<Period>(initialData.period as Period)
   const [customFrom, setCustomFrom] = useState(initialData.customFrom)
   const [customTo, setCustomTo] = useState(initialData.customTo)
@@ -73,29 +74,31 @@ export function ReportWorkspace({ initialData }: { initialData: { period: string
   }, [period, customFrom])
   const dateDescription = `${formatDate(from)} – ${formatDate(to)}`
 
-  const load = useCallback(async () => {
-    setLoading(true); setError('')
-    const client = createSupabaseBrowserClient()
-    if (!client) { setError('Supabase browser configuration is missing.'); setLoading(false); return }
-    const [salesResult, productsResult, inventoryResult] = await Promise.all([
-      client.rpc('admin_sales_report', { p_from: from, p_to: to }),
-      client.rpc('admin_top_products_report', { p_from: from, p_to: to }),
-      client.rpc('admin_inventory_report'),
-    ])
-    const firstError = salesResult.error ?? productsResult.error ?? inventoryResult.error
-    if (firstError) setError(firstError.message)
-    else {
-      setSales((salesResult.data ?? []) as SalesRow[])
-      setProducts((productsResult.data ?? []) as ProductRow[])
-      setInventory((inventoryResult.data ?? []) as InventoryRow[])
-      setLastUpdated(new Date())
-    }
+  useEffect(() => {
+    setPeriod(initialData.period as Period)
+    setCustomFrom(initialData.customFrom)
+    setCustomTo(initialData.customTo)
+    setSales(initialData.sales)
+    setProducts(initialData.products)
+    setInventory(initialData.inventory)
+    setError(initialData.error)
     setLoading(false)
-  }, [from, to])
-  const initialRange = useRef(`${initialData.from}|${initialData.to}`)
-  useEffect(() => { if (`${from}|${to}` !== initialRange.current) void load() }, [from, to, load])
+    setLastUpdated(new Date())
+  }, [initialData.period, initialData.customFrom, initialData.customTo, initialData.sales, initialData.products, initialData.inventory, initialData.error])
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const url = new URL(window.location.href)
+      url.searchParams.set('period', period)
+      if (period === 'custom') { url.searchParams.set('from', customFrom); url.searchParams.set('to', customTo) }
+      else { url.searchParams.delete('from'); url.searchParams.delete('to') }
+      setLoading(true)
+      startTransition(() => router.replace(url.pathname + url.search, { scroll: false }))
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [period, customFrom, customTo, router])
   useEffect(() => { setDailyPage(1) }, [from, to])
-  useRealtimeReload('admin-reports-live', ['orders', 'order_items', 'inventory'], () => { void load() })
+  function load() { setLoading(true); startTransition(() => router.refresh()) }
+  useRealtimeReload('admin-reports-live', ['orders', 'order_items', 'inventory'], load)
 
   function exportCsv() {
     const rows = [['day', 'orders', 'revenue'], ...sales.map(row => [row.day, String(row.order_count), String(row.revenue)])]
