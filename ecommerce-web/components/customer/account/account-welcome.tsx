@@ -1,5 +1,3 @@
-'use client'
-
 import { ShieldCheck, UserRound, WalletCards } from 'lucide-react'
 
 export function AccountWelcome({ name, email, walletBalance, rewardBalance }: { name: string; email: string; walletBalance: number; rewardBalance: number }) {
