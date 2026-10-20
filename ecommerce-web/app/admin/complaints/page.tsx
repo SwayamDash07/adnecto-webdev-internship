@@ -3,7 +3,7 @@ import { ComplaintsWorkspace } from '@/components/admin/complaints/complaints-wo
 import { getAdminProfile } from '@/lib/admin-auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { can } from '@/lib/permission-definitions'
-import { getComplaintDetail } from './actions'
+import { getAdminComplaintDetail } from '@/lib/admin-complaint-data'
 import type { Complaint } from '@/components/admin/complaints/complaints-workspace'
 import type { ComplaintOrder } from '@/components/admin/complaints/ComplaintComposer'
 
@@ -27,7 +27,7 @@ export default async function ComplaintsPage({ searchParams }: { searchParams: P
     supabase.rpc('admin_list_unread_support_tickets'),
     supabase.rpc('admin_list_store_managers'),
     supabase.rpc('admin_list_orders'),
-    selectedId !== null ? getComplaintDetail(selectedId) : Promise.resolve({ data: null, error: '' }),
+    selectedId !== null ? getAdminComplaintDetail(supabase, selectedId) : Promise.resolve({ data: null, error: '' }),
   ])
   const customers = (customerResult.data ?? []).map((raw: Record<string, unknown>) => ({ ...raw, complaint_id: -Number(raw.ticket_id), source: 'customer' as const, assigned_to: null, assigned_name: null, orders_status_at_filing: raw.current_order_status, raised_by_name: raw.customer_name }))
   const rows = [...(staffResult.data ?? []).map((row: Record<string, unknown>) => ({ ...row, source: 'staff' as const })), ...customers] as unknown as Complaint[]
