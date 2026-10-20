@@ -17,7 +17,7 @@ import { useCan } from '@/lib/use-can'
 const routeBase = process.env.NEXT_PUBLIC_ADMIN_ROUTE_TOKEN ? `/portal/${process.env.NEXT_PUBLIC_ADMIN_ROUTE_TOKEN}` : '/404'
 const addHref = `${routeBase}/products/new`
 
-export function LiveProductManager({ initialProducts, initialError }: { initialProducts: AdminProduct[]; initialError: string }) {
+export function LiveProductManager({ initialProducts, initialError, initialFilters }: { initialProducts: AdminProduct[]; initialError: string; initialFilters: Record<'search' | 'category' | 'status' | 'stock' | 'sort' | 'page', string> }) {
   const searchParams = useSearchParams()
   const pathname = usePathname()
   const canCreate = useCan('products:create')
@@ -25,12 +25,12 @@ export function LiveProductManager({ initialProducts, initialError }: { initialP
   const [products, setProducts] = useState<AdminProduct[]>(initialProducts)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(initialError)
-  const [query, setQuery] = useState('')
-  const [category, setCategory] = useState('all')
-  const [status, setStatus] = useState('all')
-  const [stock, setStock] = useState('all')
-  const [sort, setSort] = useState('name')
-  const [page, setPage] = useState(1)
+  const [query, setQuery] = useState(initialFilters.search)
+  const [category, setCategory] = useState(initialFilters.category || 'all')
+  const [status, setStatus] = useState(initialFilters.status || 'all')
+  const [stock, setStock] = useState(initialFilters.stock || 'all')
+  const [sort, setSort] = useState(initialFilters.sort || 'name')
+  const [page, setPage] = useState(Math.max(1, Number(initialFilters.page) || 1))
   const [pageSize, setPageSize] = useState(10)
   const [menu, setMenu] = useState<number | null>(null)
   const [confirm, setConfirm] = useState<AdminProduct | null>(null)
@@ -48,6 +48,19 @@ export function LiveProductManager({ initialProducts, initialError }: { initialP
     const timer = window.setTimeout(() => setToast(''), 3200)
     return () => window.clearTimeout(timer)
   }, [pathname, searchParams])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const url = new URL(window.location.href)
+      const values = { search: query.trim(), category, status, stock, sort, page: page > 1 ? String(page) : '' }
+      for (const [key, value] of Object.entries(values)) {
+        if (!value || (key !== 'search' && key !== 'page' && value === ({ category: 'all', status: 'all', stock: 'all', sort: 'name' } as Record<string, string>)[key])) url.searchParams.delete(key)
+        else url.searchParams.set(key, value)
+      }
+      window.history.replaceState(null, '', url.pathname + url.search)
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [query, category, status, stock, sort, page])
 
   async function load() {
     const client = createSupabaseBrowserClient()
