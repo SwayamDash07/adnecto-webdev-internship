@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Bell, Check, CheckCheck, ClipboardCheck, MailOpen, Megaphone, Search, Send, ShieldAlert, TriangleAlert, UserRound, X } from 'lucide-react'
 import { AdminShell } from './admin-shell'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
+import { getStaffMessageRecipients } from '@/app/admin/notifications/actions'
 
 export type StaffMessage = { message_id:number; recipient_row_id:number; sender_id:string; sender_name:string; message_type:'alert'|'issue'|'announcement'; title:string; body:string; created_at:string; read_at:string|null; acknowledged_at:string|null; done_at:string|null; done_note:string|null }
 export type SentMessage = { message_id:number; message_type:'alert'|'issue'|'announcement'; title:string; body:string; created_at:string; recipient_count:number; read_count:number; done_count:number; acknowledged_count:number; audience_mode:string|null; audience_roles:string[]|null; audience_label:string|null }
@@ -34,6 +36,7 @@ function logRpcError(area:string,error:unknown){
 }
 
 export function AdminStaffMessages({ initialRole, initialInbox, initialSent, initialTargets, initialErrors }: { initialRole: string; initialInbox: StaffMessage[]; initialSent: SentMessage[]; initialTargets: Target[]; initialErrors: { inbox: string; sent: string; targets: string } }){
+  const router=useRouter()
   const client=useMemo(()=>createSupabaseBrowserClient(),[])
   const [role]=useState(initialRole)
   const [inbox,setInbox]=useState<StaffMessage[]>(initialInbox)
@@ -45,14 +48,14 @@ export function AdminStaffMessages({ initialRole, initialInbox, initialSent, ini
   const [mode,setMode]=useState<'inbox'|'sent'>(initialRole==='super_admin'?'sent':'inbox')
   const [inboxFilter,setInboxFilter]=useState<Filter>('all')
   const [sentFilter,setSentFilter]=useState<Filter>('all')
-  const [inboxLoading,setInboxLoading]=useState(false)
-  const [sentLoading,setSentLoading]=useState(false)
+  const inboxLoading=false
+  const sentLoading=false
   const [inboxError,setInboxError]=useState(initialErrors.inbox)
   const [sentError,setSentError]=useState(initialErrors.sent)
   const [detailError,setDetailError]=useState('')
   const [composeError,setComposeError]=useState(initialErrors.targets)
   const [composeErrorKind,setComposeErrorKind]=useState<'targets'|'send'|''>(initialErrors.targets ? 'targets' : '')
-  const [targetsLoading,setTargetsLoading]=useState(false)
+  const targetsLoading=false
   const [noteOpen,setNoteOpen]=useState(false)
   const [note,setNote]=useState('')
   const [toast,setToast]=useState('')
@@ -60,61 +63,33 @@ export function AdminStaffMessages({ initialRole, initialInbox, initialSent, ini
   const [compose,setCompose]=useState(false)
   const [busy,setBusy]=useState(false)
 
-  const loadInbox=useCallback(async()=>{
-    setInboxLoading(true);setInboxError('')
-    if(!client){setInboxError(friendly.inbox);setInboxLoading(false);return}
-    try{
-      const {data,error}=await client.rpc('staff_list_admin_messages')
-      if(error){logRpcError('staff_list_admin_messages',error);setInboxError(friendly.inbox)}
-      else{const rows=(data??[]) as StaffMessage[];setInbox(rows);setSelected(current=>current?rows.find(row=>row.recipient_row_id===current.recipient_row_id)??null:rows[0]??null)}
-    }catch(error){logRpcError('staff_list_admin_messages',error);setInboxError(friendly.inbox)}
-    finally{setInboxLoading(false)}
-  },[client])
-
-  const loadSent=useCallback(async()=>{
-    if(!client)return
-    setSentLoading(true);setSentError('')
-    try{
-      const {data,error}=await client.rpc('admin_list_sent_staff_messages')
-      if(error){logRpcError('admin_list_sent_staff_messages',error);setSentError(friendly.sent)}
-      else{const rows=(data??[]) as SentMessage[];setSent(rows);setSentSelected(current=>current?rows.find(row=>row.message_id===current.message_id)??null:rows[0]??null)}
-    }catch(error){logRpcError('admin_list_sent_staff_messages',error);setSentError(friendly.sent)}
-    finally{setSentLoading(false)}
-  },[client])
-
-  const loadTargets=useCallback(async()=>{
-    if(!client){setTargets([]);setComposeError(friendly.targets);setComposeErrorKind('targets');return}
-    setTargetsLoading(true);setComposeError('');setComposeErrorKind('')
-    try{const {data,error}=await client.rpc('admin_list_staff_message_targets');if(error){logRpcError('admin_list_staff_message_targets',error);setTargets([]);setComposeError(friendly.targets);setComposeErrorKind('targets')}else setTargets((data??[]) as Target[])}
-    catch(error){logRpcError('admin_list_staff_message_targets',error);setTargets([]);setComposeError(friendly.targets);setComposeErrorKind('targets')}
-    finally{setTargetsLoading(false)}
-  },[client])
+  const refresh=useCallback(()=>router.refresh(),[router])
+  useEffect(()=>{setInbox(initialInbox);setSent(initialSent);setTargets(initialTargets);setInboxError(initialErrors.inbox);setSentError(initialErrors.sent);setComposeError(initialErrors.targets);setSelected(current=>current?initialInbox.find(row=>row.recipient_row_id===current.recipient_row_id)??initialInbox[0]??null:initialInbox[0]??null);setSentSelected(current=>current?initialSent.find(row=>row.message_id===current.message_id)??initialSent[0]??null:initialSent[0]??null)},[initialInbox,initialSent,initialTargets,initialErrors.inbox,initialErrors.sent,initialErrors.targets])
 
   const loadRecipients=useCallback(async(id:number)=>{
-    if(!client)return
     setDetailError('')
-    try{const {data,error}=await client.rpc('admin_staff_message_recipients',{p_message_id:id});if(error){logRpcError('admin_staff_message_recipients',error);setDetailError(friendly.recipients)}else setRecipients((data??[]) as Recipient[])}
+    try{const {rows,error}=await getStaffMessageRecipients(id);if(error){setDetailError(friendly.recipients)}else setRecipients(rows as Recipient[])}
     catch(error){logRpcError('admin_staff_message_recipients',error);setDetailError(friendly.recipients)}
-  },[client])
+  },[])
 
   useEffect(()=>{
     if(!client)return
-    const channel=client.channel('admin-staff-messages-live').on('postgres_changes',{event:'*',schema:'public',table:'admin_message_recipients'},()=>{
-      void loadInbox()
-      if(role==='super_admin'){void loadSent();if(sentSelected)void loadRecipients(sentSelected.message_id)}
+    const channel=client.channel(`admin-staff-messages-live-${crypto.randomUUID()}`).on('postgres_changes',{event:'*',schema:'public',table:'admin_message_recipients'},()=>{
+      refresh()
+      if(role==='super_admin'&&sentSelected)void loadRecipients(sentSelected.message_id)
     }).subscribe()
     return()=>{void channel.unsubscribe()}
-  },[client,loadInbox,loadRecipients,loadSent,role,sentSelected])
+  },[client,loadRecipients,role,sentSelected,refresh])
 
   async function updateRecipient(rowId:number,action:'read'|'acknowledge'|'done'|'undo',messageNote:string|null=null){
     if(!client)return false
-    try{const {error}=await client.rpc('staff_update_admin_message',{p_recipient_row_id:rowId,p_action:action,p_done_note:messageNote});if(error){logRpcError(`staff_update_admin_message:${action}`,error);setInboxError(friendly.update);return false}return true}
+    try{const {error}=await client.rpc('staff_update_admin_message',{p_recipient_row_id:rowId,p_action:action,p_done_note:messageNote});if(error){logRpcError(`staff_update_admin_message:${action}`,error);setInboxError(friendly.update);return false}refresh();return true}
     catch(error){logRpcError(`staff_update_admin_message:${action}`,error);setInboxError(friendly.update);return false}
   }
-  async function chooseInbox(row:StaffMessage){setSelected(row);setNoteOpen(false);if(!row.read_at){const ok=await updateRecipient(row.recipient_row_id,'read');if(ok)await loadInbox()}}
-  async function markDone(){if(!selected)return;setBusy(true);const ok=await updateRecipient(selected.recipient_row_id,'done',note);setBusy(false);if(!ok)return;setNoteOpen(false);setNote('');setToast('Marked as done');setUndoRow(selected.recipient_row_id);window.setTimeout(()=>{setToast('');setUndoRow(null)},10000);await loadInbox()}
-  async function undo(){if(undoRow===null)return;const ok=await updateRecipient(undoRow,'undo');setToast(ok?'Completion undone':'We could not undo this completion.');setUndoRow(null);window.setTimeout(()=>setToast(''),2500);await loadInbox()}
-  async function acknowledge(){if(!selected)return;const ok=await updateRecipient(selected.recipient_row_id,'acknowledge');if(ok)await loadInbox()}
+  async function chooseInbox(row:StaffMessage){setSelected(row);setNoteOpen(false);if(!row.read_at)await updateRecipient(row.recipient_row_id,'read')}
+  async function markDone(){if(!selected)return;setBusy(true);const ok=await updateRecipient(selected.recipient_row_id,'done',note);setBusy(false);if(!ok)return;setNoteOpen(false);setNote('');setToast('Marked as done');setUndoRow(selected.recipient_row_id);window.setTimeout(()=>{setToast('');setUndoRow(null)},10000)}
+  async function undo(){if(undoRow===null)return;const ok=await updateRecipient(undoRow,'undo');setToast(ok?'Completion undone':'We could not undo this completion.');setUndoRow(null);window.setTimeout(()=>setToast(''),2500)}
+  async function acknowledge(){if(!selected)return;await updateRecipient(selected.recipient_row_id,'acknowledge')}
   async function sendMessage(input:NewMessageInput){
     if(!client||busy)return false
     setBusy(true);setComposeError('');setComposeErrorKind('')
@@ -122,10 +97,10 @@ export function AdminStaffMessages({ initialRole, initialInbox, initialSent, ini
       const {data,error}=await client.rpc('admin_send_staff_message',{p_type:input.type,p_title:input.title,p_body:input.body,p_recipient_ids:input.audienceMode==='people'?input.recipientIds:[],p_audience_mode:input.audienceMode,p_audience_roles:input.audienceMode==='roles'?input.audienceRoles:null})
       if(error){logRpcError('admin_send_staff_message',error);setComposeError(friendly.send);setComposeErrorKind('send');return false}
       const sentCount=Number((data as {recipient_count?:number}|null)?.recipient_count??0)
-      setCompose(false);setToast(`Sent to ${sentCount} ${sentCount===1?'person':'people'}`);window.setTimeout(()=>setToast(''),3000);await loadSent();return true
+      setCompose(false);setToast(`Sent to ${sentCount} ${sentCount===1?'person':'people'}`);window.setTimeout(()=>setToast(''),3000);refresh();return true
     }catch(error){logRpcError('admin_send_staff_message',error);setComposeError(friendly.send);setComposeErrorKind('send');return false}finally{setBusy(false)}
   }
-  async function remind(message:SentMessage){if(!client)return;setBusy(true);setSentError('');try{const {data,error}=await client.rpc('admin_remind_staff_message',{p_message_id:message.message_id});if(error){logRpcError('admin_remind_staff_message',error);setSentError(friendly.reminder)}else{setToast(`Reminder sent to ${data} staff member${data===1?'':'s'}`);window.setTimeout(()=>setToast(''),3000)}}catch(error){logRpcError('admin_remind_staff_message',error);setSentError(friendly.reminder)}finally{setBusy(false)}}
+  async function remind(message:SentMessage){if(!client)return;setBusy(true);setSentError('');try{const {data,error}=await client.rpc('admin_remind_staff_message',{p_message_id:message.message_id});if(error){logRpcError('admin_remind_staff_message',error);setSentError(friendly.reminder)}else{setToast(`Reminder sent to ${data} staff member${data===1?'':'s'}`);window.setTimeout(()=>setToast(''),3000);refresh()}}catch(error){logRpcError('admin_remind_staff_message',error);setSentError(friendly.reminder)}finally{setBusy(false)}}
 
   const admin=role==='super_admin'
   const unread=inbox.filter(item=>!item.read_at).length
@@ -136,7 +111,7 @@ export function AdminStaffMessages({ initialRole, initialInbox, initialSent, ini
   const waitingCount=sent.filter(item=>item.message_type==='announcement'?item.acknowledged_count<item.recipient_count:item.done_count<item.recipient_count).length
   const completeCount=sent.filter(item=>item.recipient_count>0&&(item.message_type==='announcement'?item.acknowledged_count===item.recipient_count:item.done_count===item.recipient_count)).length
   const visibleSent=sent.filter(item=>sentFilter==='waiting'?(item.message_type==='announcement'?item.acknowledged_count<item.recipient_count:item.done_count<item.recipient_count):sentFilter==='complete'?item.recipient_count>0&&(item.message_type==='announcement'?item.acknowledged_count===item.recipient_count:item.done_count===item.recipient_count):true)
-  const openComposer=()=>{setCompose(true);setComposeError('');setComposeErrorKind('');void loadTargets()}
+  const openComposer=()=>{setCompose(true);setComposeError('');setComposeErrorKind('')}
 
   return <AdminShell eyebrow="OPERATIONS" title="Messages" description={admin?'Send updates and track staff acknowledgements.':'Updates and requests from your admin.'} action={admin?<button type="button" className="primary-button staff-message-new" onClick={openComposer}><Send size={17}/>New message</button>:<span className="staff-message-todo-count">{todos} to do</span>}>
     <section className="staff-messages-panel">
@@ -151,12 +126,12 @@ export function AdminStaffMessages({ initialRole, initialInbox, initialSent, ini
         </div>
         <div className="staff-message-layout">
           <div className="staff-message-list" aria-label="Inbox messages">
-            {inboxLoading?<div className="staff-message-skeleton-list">{Array.from({length:5},(_,i)=><i key={i}/>)}</div>:inboxError?<InlineError message={inboxError} onRetry={()=>void loadInbox()}/>:visibleInbox.length===0?inbox.length===0?<EmptyList admin={false}/>:<EmptyFilter onClear={()=>setInboxFilter('all')}/>:visibleInbox.map(row=><button type="button" key={row.recipient_row_id} className={`staff-message-row ${row.done_at?'done':''} ${selected?.recipient_row_id===row.recipient_row_id?'selected':''}`} onClick={()=>void chooseInbox(row)}><span className="staff-message-row-copy"><strong>{row.title}</strong><small>{row.message_type} · {dateTime(row.created_at)}</small></span>{row.done_at&&<span className="staff-message-done-chip"><Check size={12}/>Done</span>}</button>)}
+            {inboxLoading?<div className="staff-message-skeleton-list">{Array.from({length:5},(_,i)=><i key={i}/>)}</div>:inboxError?<InlineError message={inboxError} onRetry={()=>refresh()}/>:visibleInbox.length===0?inbox.length===0?<EmptyList admin={false}/>:<EmptyFilter onClear={()=>setInboxFilter('all')}/>:visibleInbox.map(row=><button type="button" key={row.recipient_row_id} className={`staff-message-row ${row.done_at?'done':''} ${selected?.recipient_row_id===row.recipient_row_id?'selected':''}`} onClick={()=>void chooseInbox(row)}><span className="staff-message-row-copy"><strong>{row.title}</strong><small>{row.message_type} · {dateTime(row.created_at)}</small></span>{row.done_at&&<span className="staff-message-done-chip"><Check size={12}/>Done</span>}</button>)}
           </div>
           <article className="staff-message-detail" aria-label="Message details">
             {inboxLoading?<DetailSkeleton/>:selected?<><div className="staff-message-detail-top"><span className={`staff-message-type ${selected.message_type}`}>{selected.message_type}</span><time>{dateTime(selected.created_at)}</time></div><h2>{selected.title}</h2><p className="staff-message-sender">From {selected.sender_name}</p><p className="staff-message-body">{selected.body}</p>
               {selected.message_type!=='announcement'&&!selected.done_at&&!selected.acknowledged_at&&<div className="staff-message-urgent"><ShieldAlert size={17}/><span>Urgent message · Please review and mark as done when handled.</span></div>}
-              {inboxError&&<InlineError message={inboxError} onRetry={()=>void loadInbox()}/>}
+              {inboxError&&<InlineError message={inboxError} onRetry={()=>refresh()}/>}
               {selected.message_type==='announcement'?selected.acknowledged_at?<p className="staff-message-confirmed"><CheckCheck size={15}/>Acknowledged on {dateTime(selected.acknowledged_at)}</p>:<button type="button" className="primary-button staff-message-action" onClick={()=>void acknowledge()}><Check size={17}/>Got it</button>:selected.done_at?<div className="staff-message-done-state"><p><CheckCheck size={15}/>Done on {dateTime(selected.done_at)}</p>{selected.done_note&&<small>{selected.done_note}</small>}</div>:noteOpen?<div className="staff-message-note-panel"><label>Add a note for your admin (optional)<input maxLength={200} value={note} onChange={event=>setNote(event.target.value)}/><small>{note.length}/200</small></label><div><button type="button" className="secondary-button" disabled={busy} onClick={()=>{setNoteOpen(false);setNote('')}}>Cancel</button><button type="button" className="primary-button" disabled={busy} onClick={()=>void markDone()}>{busy?'Saving…':'Confirm'}</button></div></div>:<button type="button" className="primary-button staff-message-action" onClick={()=>setNoteOpen(true)}><Check size={17}/>Mark as done</button>}
             </>:<EmptyDetail/>}
           </article>
@@ -167,12 +142,12 @@ export function AdminStaffMessages({ initialRole, initialInbox, initialSent, ini
         </div>
         <div className="staff-message-layout sent-layout">
           <div className="staff-message-list" aria-label="Sent messages">
-            {sentLoading?<div className="staff-message-skeleton-list">{Array.from({length:5},(_,i)=><i key={i}/>)}</div>:sentError?<InlineError message={sentError} onRetry={()=>void loadSent()}/>:visibleSent.length===0?sent.length===0?<EmptyList admin onCreate={openComposer}/>:<EmptyFilter onClear={()=>setSentFilter('all')}/>:visibleSent.map(row=><button type="button" className={`staff-message-row ${sentSelected?.message_id===row.message_id?'selected':''}`} key={row.message_id} onClick={()=>{setSentSelected(row);setRecipients([]);void loadRecipients(row.message_id)}}><span className="staff-message-row-copy"><strong>{row.title}</strong><small>{row.message_type} · {row.read_count} of {row.recipient_count} read - {row.message_type==='announcement'?`${row.acknowledged_count} of ${row.recipient_count} acknowledged`:`${row.done_count} of ${row.recipient_count} done`}</small><small className="staff-message-audience">To: {row.audience_label||`${row.recipient_count} ${row.recipient_count===1?'person':'people'}`}</small></span><span className={`staff-message-type ${row.message_type}`}>{row.message_type}</span></button>)}
+            {sentLoading?<div className="staff-message-skeleton-list">{Array.from({length:5},(_,i)=><i key={i}/>)}</div>:sentError?<InlineError message={sentError} onRetry={()=>refresh()}/>:visibleSent.length===0?sent.length===0?<EmptyList admin onCreate={openComposer}/>:<EmptyFilter onClear={()=>setSentFilter('all')}/>:visibleSent.map(row=><button type="button" className={`staff-message-row ${sentSelected?.message_id===row.message_id?'selected':''}`} key={row.message_id} onClick={()=>{setSentSelected(row);setRecipients([]);void loadRecipients(row.message_id)}}><span className="staff-message-row-copy"><strong>{row.title}</strong><small>{row.message_type} · {row.read_count} of {row.recipient_count} read - {row.message_type==='announcement'?`${row.acknowledged_count} of ${row.recipient_count} acknowledged`:`${row.done_count} of ${row.recipient_count} done`}</small><small className="staff-message-audience">To: {row.audience_label||`${row.recipient_count} ${row.recipient_count===1?'person':'people'}`}</small></span><span className={`staff-message-type ${row.message_type}`}>{row.message_type}</span></button>)}
           </div>
           <article className="staff-message-detail" aria-label="Sent message details">
             {sentLoading?<DetailSkeleton/>:sentError?<EmptyDetail/>:sentSelected?<><h2>{sentSelected.title}</h2><p className="staff-message-body">{sentSelected.body}</p><div className="staff-message-sent-summary">{sentSelected.read_count} of {sentSelected.recipient_count} read - {sentSelected.message_type==='announcement'?`${sentSelected.acknowledged_count} of ${sentSelected.recipient_count} acknowledged`:`${sentSelected.done_count} of ${sentSelected.recipient_count} done`}</div>
               {detailError?<InlineError message={detailError} onRetry={()=>void loadRecipients(sentSelected.message_id)}/>:<div className="staff-message-recipient-table"><div><b>Name</b><b>Role</b><b>Read</b><b>{sentSelected.message_type==='announcement'?'Acknowledged':'Done'}</b></div>{recipients.map((row,index)=><div key={row.recipient_id||index}><span>{row.full_name}{row.done_note&&<small>{row.done_note}</small>}</span><span>{row.role_name}</span><span>{row.read_at?dateTime(row.read_at):'Not yet'}</span><span>{(sentSelected.message_type==='announcement'?row.acknowledged_at:row.done_at)?dateTime((sentSelected.message_type==='announcement'?row.acknowledged_at:row.done_at)!):'Not yet'}</span></div>)}</div>}
-              {sentSelected.message_type!=='announcement'&&<button type="button" className="secondary-button" disabled={busy} onClick={()=>void remind(sentSelected)}>Remind those not done</button>}{sentError&&<InlineError message={sentError} onRetry={()=>void loadSent()}/>}
+              {sentSelected.message_type!=='announcement'&&<button type="button" className="secondary-button" disabled={busy} onClick={()=>void remind(sentSelected)}>Remind those not done</button>}{sentError&&<InlineError message={sentError} onRetry={()=>refresh()}/>}
             </>:<EmptyDetail/>}
           </article>
         </div>
@@ -180,7 +155,7 @@ export function AdminStaffMessages({ initialRole, initialInbox, initialSent, ini
     </section>
 
     {toast&&<div className="staff-message-toast" role="status">{toast}{undoRow!==null&&<button type="button" onClick={()=>void undo()}>Undo</button>}</div>}
-    {compose&&<NewMessageDrawer targets={targets} targetsLoading={targetsLoading} error={composeError} errorKind={composeErrorKind} busy={busy} onRetry={()=>composeErrorKind==='targets'?void loadTargets():undefined} onClose={()=>setCompose(false)} onSend={sendMessage}/ >}
+    {compose&&<NewMessageDrawer targets={targets} targetsLoading={targetsLoading} error={composeError} errorKind={composeErrorKind} busy={busy} onRetry={()=>composeErrorKind==='targets'?refresh():undefined} onClose={()=>setCompose(false)} onSend={sendMessage}/ >}
   </AdminShell>
 }
 
