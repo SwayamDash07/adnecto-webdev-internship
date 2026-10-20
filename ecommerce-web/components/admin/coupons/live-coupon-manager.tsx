@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { AdminShell } from '../admin-shell'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { money } from '@/lib/formatters'
@@ -8,8 +9,10 @@ import { useRealtimeReload } from '@/lib/use-realtime-reload'
 import type { AdminCoupon } from '@/types/admin'
 
 export function LiveCouponManager({ initialCoupons, initialError }: { initialCoupons: AdminCoupon[]; initialError: string }) {
+  const router = useRouter()
   const [coupons, setCoupons] = useState<AdminCoupon[]>(initialCoupons); const [form, setForm] = useState({ code: '', kind: 'percentage', value: '10' }); const [error, setError] = useState(initialError); const [message, setMessage] = useState('')
-  async function load() { const client = createSupabaseBrowserClient(); if (!client) return; const { data, error: queryError } = await client.rpc('admin_list_coupons'); if (queryError) { setError(queryError.message); setMessage('') } else { setCoupons((data ?? []) as AdminCoupon[]); setError('') } }
+  useEffect(() => { setCoupons(initialCoupons); setError(initialError) }, [initialCoupons, initialError])
+  function load() { router.refresh() }
   useRealtimeReload('admin-coupons-live', ['coupons'], () => { void load() })
   async function save() { setError(''); setMessage(''); const client = createSupabaseBrowserClient(); if (!client) return; const { error: saveError } = await client.rpc('admin_upsert_coupon', { p_code: form.code, p_kind: form.kind, p_value: Number(form.value), p_active: true }); if (saveError) setError(saveError.message); else { setMessage('Coupon saved.'); setForm({ code: '', kind: 'percentage', value: '10' }); await load() } }
   async function remove(coupon: AdminCoupon) { if (!window.confirm(`Delete coupon ${coupon.code}?`)) return; setError(''); setMessage(''); const client = createSupabaseBrowserClient(); if (!client) return; const { error: deleteError } = await client.rpc('admin_delete_coupon', { p_coupon_id: coupon.coupon_id }); if (deleteError) setError(deleteError.message); else { setMessage(`Coupon ${coupon.code} deleted.`); await load() } }
