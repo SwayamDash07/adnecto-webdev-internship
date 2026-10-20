@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { AlertCircle, Check, CheckCircle2, ChevronRight, Clock3, MapPin, Package, RefreshCw, Truck } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { money } from '@/lib/formatters'
@@ -10,7 +11,6 @@ import { RefundRequestDialog } from './refund-request-dialog'
 import { formatDeliverySlot } from '@/lib/delivery-slot'
 import { useIstNow } from '@/hooks/use-ist-now'
 
-const ORDER_SELECT = 'id,status,total,created_at,delivered_at,cancelled_at,delivery_slot,delivery_slot_start,delivery_slot_end,delivery_instructions,contactless_delivery,substitute_unavailable,address_id,refund_pricing_complete,address:addresses(label,line1,city,postal_code,delivery_instructions),payments(method,status,amount),order_items(id,product_id,quantity,unit_price,gst_amount,discount_amount,products!order_items_product_id_fkey(name,is_returnable,product_images(storage_path,sort_order))),refunds(id,amount,final_amount,fee_amount,status,type,pickup_slot,picked_up_at,received_at,reason,comment,decision_note,created_at,updated_at,decided_at,refund_items(quantity,amount,order_items:order_items(id,product_id,products!order_items_product_id_fkey(name))),refund_events(to_status,note,created_at))'
 const ORDER_STEPS = ['placed', 'accepted', 'picking', 'packed', 'out_for_delivery', 'delivered'] as const
 const REFUND_STEPS = ['requested', 'approved', 'pickup_scheduled', 'picked_up', 'received', 'refunded'] as const
 const ACTIVE_REFUNDS = ['requested', 'approved', 'pickup_scheduled', 'picked_up', 'received']
@@ -24,7 +24,6 @@ type RefundItem = { quantity: number; amount: number; order_items: { id: number;
 type RefundEvent = { to_status: string; note: string | null; created_at: string }
 type Refund = { id: number; amount: number; final_amount: number | null; fee_amount: number; status: string; type: string; pickup_slot: string | null; picked_up_at: string | null; received_at: string | null; reason: string; comment: string | null; decision_note: string | null; created_at: string; updated_at: string; decided_at: string | null; refund_items: RefundItem[] | null; refund_events: RefundEvent[] | null }
 type Order = { id: number; status: string; total: number; created_at: string; delivered_at: string | null; cancelled_at: string | null; delivery_slot: string | null; delivery_slot_start:string|null; delivery_slot_end:string|null; delivery_instructions:string|null; contactless_delivery: boolean | null; substitute_unavailable: boolean | null; address_id: number | null; refund_pricing_complete: boolean; address: Address | Address[]; payments: { method: string; status: string; amount: number }[] | null; order_items: Item[] | null; refunds: Refund[] | null }
-type OrderLoad = { data: Order | null; error: { message: string } | null }
 
 const one = <T,>(value: T | T[] | null | undefined): T | null => Array.isArray(value) ? value[0] ?? null : value ?? null
 const titleCase = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase())
@@ -33,12 +32,11 @@ const dateTime = (value: string, options: Intl.DateTimeFormatOptions = { day: '2
 const placedFormat = (value: string) => new Date(value).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })
 
 export function CustomerOrderTracking({ orderId: id, initialOrder, initialError, initialNow }: { orderId: number | null; initialOrder: Order | null; initialError: boolean; initialNow: string }) {
+  const router = useRouter()
   const now = useIstNow(initialNow)
   const client = useMemo(() => createSupabaseBrowserClient(), [])
   const [order, setOrder] = useState<Order | null>(initialOrder)
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState(initialError)
-  const [retry, setRetry] = useState(0)
   const [live, setLive] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<string | null>(null)
   const [announcedStatus, setAnnouncedStatus] = useState('')
@@ -47,11 +45,7 @@ export function CustomerOrderTracking({ orderId: id, initialOrder, initialError,
   const liveRef = useRef(false)
   const previousStatus = useRef<string | null>(null)
 
-  const fetchOrder = useCallback(async (orderId: number): Promise<OrderLoad> => {
-    if (!client) return { data: null, error: { message: 'Supabase browser client is unavailable.' } }
-    const { data, error: queryError } = await client.from('orders').select(ORDER_SELECT).eq('id', orderId).maybeSingle()
-    return { data: data as unknown as Order | null, error: queryError }
-  }, [client])
+  useEffect(() => { setOrder(initialOrder); setError(initialError) }, [initialOrder, initialError])
 
   useEffect(() => {
     let cancelled = false
@@ -66,38 +60,14 @@ export function CustomerOrderTracking({ orderId: id, initialOrder, initialError,
     setAnnouncedStatus('')
 
     if (!id) {
-      setLoading(false)
       return () => { cancelled = true }
-    }
-
-    const load = async () => {
-      const result = await fetchOrder(id)
-      if (cancelled) return
-      if (result.error) {
-        console.error('Could not load customer order tracking:', result.error.message)
-        setError(true)
-      } else {
-        const next = result.data
-        if (!next) {
-          setOrder(null)
-        } else {
-          if (previousStatus.current !== null && previousStatus.current !== next.status) setAnnouncedStatus(`Order status changed to ${titleCase(next.status)}.`)
-          previousStatus.current = next.status
-          setOrder(next)
-        }
-        setError(false)
-        setLastUpdated(new Date().toISOString())
-      }
-      setLoading(false)
     }
 
     const refresh = () => {
       if (cancelled) return
       if (refreshTimer) clearTimeout(refreshTimer)
-      refreshTimer = setTimeout(() => { void load() }, 300)
+      refreshTimer = setTimeout(() => router.refresh(), 300)
     }
-
-    if (retry > 0) { setLoading(true); void load() }
 
     if (client) {
       const nonce = ++subscriptionSequence
@@ -128,7 +98,7 @@ export function CustomerOrderTracking({ orderId: id, initialOrder, initialError,
         void client?.removeChannel(channel)
       }
     }
-  }, [client, fetchOrder, id, retry])
+  }, [client, id, router])
 
   const status = order?.status ?? ''
   const currentStep = ORDER_STEPS.indexOf(status as typeof ORDER_STEPS[number])
@@ -139,8 +109,7 @@ export function CustomerOrderTracking({ orderId: id, initialOrder, initialError,
   const address = one(order?.address)
   const payment = order?.payments?.[0] ?? null
 
-  if (loading) return <TrackingSkeleton />
-  if (error) return <section className="tracking-message tracking-error" role="alert"><span><AlertCircle size={20} /></span><h2>Something went wrong loading your order</h2><p>Please try again in a moment.</p><button className="secondary-button tracking-control" type="button" onClick={() => setRetry(value => value + 1)}><RefreshCw size={15} />Retry</button></section>
+  if (error) return <section className="tracking-message tracking-error" role="alert"><span><AlertCircle size={20} /></span><h2>Something went wrong loading your order</h2><p>Please try again in a moment.</p><button className="secondary-button tracking-control" type="button" onClick={() => router.refresh()}><RefreshCw size={15} />Retry</button></section>
   if (!id || !order) return <section className="tracking-message"><span><Package size={21} /></span><h2>We couldn’t find this order</h2><p>It may not exist, or it may not be available in your account.</p><Link className="secondary-button tracking-control" href="/customer/orders">Back to orders</Link></section>
 
   const paid = payment && !['pending', 'failed'].includes(payment.status)
@@ -153,8 +122,7 @@ export function CustomerOrderTracking({ orderId: id, initialOrder, initialError,
     if (!client || !window.confirm('Cancel this order? A prepaid order will receive a demo refund.')) return
     const { error: cancelError } = await client.rpc('customer_cancel_order', { p_order_id: order.id })
     if (cancelError) { console.error('Could not cancel customer order:', cancelError.message); window.alert('We couldn’t cancel this order. Please try again or contact support.'); return }
-    const result = await fetchOrder(order.id)
-    if (!result.error && result.data) setOrder(result.data)
+    router.refresh()
   }
 
   return <div className="tracking-page">
@@ -195,7 +163,7 @@ export function CustomerOrderTracking({ orderId: id, initialOrder, initialError,
         </div>
       </aside>
     </div>
-    {refundOrder && <RefundRequestDialog orderId={refundOrder.id} addressId={refundOrder.address_id} pickupAddress={[address?.label, address?.line1, address?.city, address?.postal_code].filter(Boolean).join(', ')} pricingAvailable={refundOrder.refund_pricing_complete} items={items.map(item => ({ id: item.id, quantity: item.quantity, unit_price: item.unit_price, gst_amount: item.gst_amount, discount_amount: item.discount_amount, is_returnable: one(item.products)?.is_returnable ?? true, products: one(item.products) }))} feeRefund={Math.max(0, Number(order.total) - items.reduce((sum, item) => sum + Number(item.unit_price) * item.quantity + Number(item.gst_amount) - Number(item.discount_amount), 0) - refunds.filter(refund => refund.status !== 'rejected').reduce((sum, refund) => sum + Number(refund.fee_amount ?? 0), 0))} prepaid={(order.payments ?? []).some(row => !['cod', 'cash on delivery'].includes(row.method.toLowerCase()))} onClose={() => setRefundOrder(null)} onSubmitted={() => { setRefundOrder(null); void fetchOrder(order.id).then(result => { if (!result.error && result.data) setOrder(result.data) }) }} />}
+    {refundOrder && <RefundRequestDialog orderId={refundOrder.id} addressId={refundOrder.address_id} pickupAddress={[address?.label, address?.line1, address?.city, address?.postal_code].filter(Boolean).join(', ')} pricingAvailable={refundOrder.refund_pricing_complete} items={items.map(item => ({ id: item.id, quantity: item.quantity, unit_price: item.unit_price, gst_amount: item.gst_amount, discount_amount: item.discount_amount, is_returnable: one(item.products)?.is_returnable ?? true, products: one(item.products) }))} feeRefund={Math.max(0, Number(order.total) - items.reduce((sum, item) => sum + Number(item.unit_price) * item.quantity + Number(item.gst_amount) - Number(item.discount_amount), 0) - refunds.filter(refund => refund.status !== 'rejected').reduce((sum, refund) => sum + Number(refund.fee_amount ?? 0), 0))} prepaid={(order.payments ?? []).some(row => !['cod', 'cash on delivery'].includes(row.method.toLowerCase()))} onClose={() => setRefundOrder(null)} onSubmitted={() => { setRefundOrder(null); router.refresh() }} />}
   </div>
 }
 
@@ -232,6 +200,3 @@ function RefundCard({ refund }: { refund: Refund }) {
   </article>
 }
 
-function TrackingSkeleton() {
-  return <div className="tracking-skeleton" aria-label="Loading order tracking"><div className="tracking-skeleton-line short" /><div className="tracking-skeleton-line heading" /><div className="tracking-skeleton-line wide" /><div className="tracking-skeleton-grid"><div className="tracking-skeleton-card"><i /><i /><i /><i /><i /><i /></div><div className="tracking-skeleton-card"><i /><i /><i /></div></div></div>
-}
