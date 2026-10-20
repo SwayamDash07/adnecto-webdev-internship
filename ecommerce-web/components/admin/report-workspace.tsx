@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
@@ -10,9 +10,9 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { money } from '@/lib/formatters'
 import { useRealtimeReload } from '@/lib/use-realtime-reload'
 
-type SalesRow = { day: string; order_count: number; revenue: number }
-type ProductRow = { product_id: number; product_name: string; units_sold: number; revenue: number }
-type InventoryRow = { product_id: number; product_name: string; current_stock: number; reserved_stock: number; reorder_level: number; low_stock: boolean }
+export type SalesRow = { day: string; order_count: number; revenue: number }
+export type ProductRow = { product_id: number; product_name: string; units_sold: number; revenue: number }
+export type InventoryRow = { product_id: number; product_name: string; current_stock: number; reserved_stock: number; reorder_level: number; low_stock: boolean }
 type Period = 'today' | '7' | '30' | 'month' | 'custom'
 type InventoryState = 'all' | 'healthy' | 'low' | 'out'
 
@@ -39,21 +39,21 @@ function MiniSparkline({ values }: { values: number[] }) {
   return <svg className="report-sparkline" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><polyline points={points} fill="none" stroke="currentColor" strokeWidth="2" vectorEffect="non-scaling-stroke" /></svg>
 }
 
-export function ReportWorkspace() {
+export function ReportWorkspace({ initialData }: { initialData: { period: string; from: string; to: string; customFrom: string; customTo: string; sales: SalesRow[]; products: ProductRow[]; inventory: InventoryRow[]; error: string } }) {
   const pathname = usePathname()
-  const [period, setPeriod] = useState<Period>('30')
-  const [customFrom, setCustomFrom] = useState(() => dateKey(new Date(Date.now() - 6 * 86400000)))
-  const [customTo, setCustomTo] = useState(() => dateKey(new Date()))
+  const [period, setPeriod] = useState<Period>(initialData.period as Period)
+  const [customFrom, setCustomFrom] = useState(initialData.customFrom)
+  const [customTo, setCustomTo] = useState(initialData.customTo)
   const [compare, setCompare] = useState(false)
   const [metric, setMetric] = useState<'revenue' | 'orders'>('revenue')
   const [productMetric, setProductMetric] = useState<'revenue' | 'units'>('revenue')
   const [showAllProducts, setShowAllProducts] = useState(false)
-  const [sales, setSales] = useState<SalesRow[]>([])
-  const [products, setProducts] = useState<ProductRow[]>([])
-  const [inventory, setInventory] = useState<InventoryRow[]>([])
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [sales, setSales] = useState<SalesRow[]>(initialData.sales)
+  const [products, setProducts] = useState<ProductRow[]>(initialData.products)
+  const [inventory, setInventory] = useState<InventoryRow[]>(initialData.inventory)
+  const [error, setError] = useState(initialData.error)
+  const [loading, setLoading] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(new Date())
   const [inventorySearch, setInventorySearch] = useState('')
   const [inventoryFilter, setInventoryFilter] = useState<InventoryState>('all')
   const [inventorySort, setInventorySort] = useState<'state' | 'name' | 'available' | 'reserved' | 'reorder'>('state')
@@ -92,7 +92,8 @@ export function ReportWorkspace() {
     }
     setLoading(false)
   }, [from, to])
-  useEffect(() => { void load() }, [load])
+  const initialRange = useRef(`${initialData.from}|${initialData.to}`)
+  useEffect(() => { if (`${from}|${to}` !== initialRange.current) void load() }, [from, to, load])
   useEffect(() => { setDailyPage(1) }, [from, to])
   useRealtimeReload('admin-reports-live', ['orders', 'order_items', 'inventory'], () => { void load() })
 
