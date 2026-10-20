@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle, Check, ChevronDown, ClipboardList, LockKeyhole, MessageCircle, RotateCw, Search, Send, X, Zap } from 'lucide-react'
-import { updateOrderComplaint } from '@/app/admin/complaints/actions'
+import { getComplaintDetail, updateOrderComplaint } from '@/app/admin/complaints/actions'
 import { ComplaintComposer } from './ComplaintComposer'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useRealtimeReload } from '@/lib/use-realtime-reload'
@@ -20,7 +20,7 @@ const severityOrder: Record<string,number> = { high:0,medium:1,low:2 }
 function relative(value: string) { const age=Date.now()-Date.parse(value); const hours=Math.floor(age/3600000); return hours<24?`${Math.max(0,hours)}h ago`:`${Math.floor(hours/24)}d ago` }
 function durationLabel(milliseconds: number) { const hours=Math.max(0,Math.round(milliseconds/3600000)); return hours<24?`${hours}h`:`${Math.floor(hours/24)}d` }
 
-export function ComplaintsWorkspace({ role, initialRows, initialUnreadTicketIds, initialManagers, initialUserId, initialError }: { role: string; initialRows: Complaint[]; initialUnreadTicketIds: number[]; initialManagers: Manager[]; initialUserId: string; initialError: string }) {
+export function ComplaintsWorkspace({ role, initialRows, initialUnreadTicketIds, initialManagers, initialOrders, initialUserId, initialError }: { role: string; initialRows: Complaint[]; initialUnreadTicketIds: number[]; initialManagers: Manager[]; initialOrders: import('./ComplaintComposer').ComplaintOrder[]; initialUserId: string; initialError: string }) {
   const now=useIstNow()
   const router = useRouter()
   const [rows,setRows]=useState<Complaint[]>(initialRows)
@@ -59,23 +59,15 @@ export function ComplaintsWorkspace({ role, initialRows, initialUnreadTicketIds,
   const composerRef=useRef<HTMLTextAreaElement>(null)
   const threadBeforeOpen=useRef<number|null>(null)
 
-  const load=useCallback(async()=>{
-    const client=createSupabaseBrowserClient(); if(!client){setError('Supabase browser configuration is missing.');setLoading(false);return}
-    setLoading(true);setError('')
-    const profile=await client.rpc('get_my_admin_profile')
-    const canViewStaff=can(String(profile.data?.[0]?.role_name??''),'orders:view')
-    const [{data,error:queryError},{data:customerData,error:customerError},{data:unreadData}]=await Promise.all([canViewStaff?client.rpc('admin_list_complaints'):Promise.resolve({data:[],error:null}),client.rpc('admin_list_customer_support_tickets'),client.rpc('admin_list_unread_support_tickets')])
-    setUnreadTicketIds(((unreadData??[]) as number[]).map(Number));if(queryError||customerError)setError(queryError?.message??customerError?.message??'Could not load complaints');else{const staff=((data??[]) as Complaint[]).map(row=>({...row,source:'staff' as const}));const customers=(customerData??[] as Record<string,unknown>[]).map((raw:any)=>({...raw,complaint_id:-Number(raw.ticket_id),source:'customer' as const,assigned_to:null,assigned_name:null,orders_status_at_filing:raw.current_order_status,raised_by_name:raw.customer_name} as Complaint));setRows([...staff,...customers])}
-    setLoading(false)
-  },[])
+  const load=useCallback(()=>{setLoading(true);router.refresh()},[router])
   const loadDetail=useCallback(async(id:number)=>{
-    const client=createSupabaseBrowserClient();if(!client)return
     setSelectedId(id);setDetailLoading(true)
-    const customer=id<0;const {data,error:detailError}=customer?await client.rpc('admin_customer_support_ticket_detail',{p_ticket_id:Math.abs(id)}):await client.rpc('admin_complaint_detail',{p_complaint_id:id})
-    if(detailError){setError(detailError.message);setDetail(null)}else{const raw=data as any;const normalized=customer?{complaint:{...raw.ticket,id:-Number(raw.ticket.id),source:'customer',issue_type:raw.ticket.issue_type,severity:raw.ticket.priority,notes:raw.ticket.message,raised_by_name:raw.ticket.raised_by_name},order:raw.order,events:raw.events,order_history:raw.order_history}:raw;const orderId=Number(normalized.order?.order_id);if(orderId){const {data:orderTimes}=await client.from('orders').select('status,delivery_slot,delivery_slot_start,delivery_slot_end,delivered_at').eq('id',orderId).maybeSingle();if(orderTimes)normalized.order={...normalized.order,...orderTimes}}setDetail(normalized as Detail);setNextStatus(String(normalized.complaint.status));setNextAssignee(String(normalized.complaint.assigned_to??''));setComment('');setResolution('');setInternalNote(false)}
+    const customer=id<0;const {data,error:detailError}=await getComplaintDetail(id)
+    if(detailError||!data){setError(detailError);setDetail(null)}else{const raw=data as any;const normalized=customer?{complaint:{...raw.ticket,id:-Number(raw.ticket.id),source:'customer',issue_type:raw.ticket.issue_type,severity:raw.ticket.priority,notes:raw.ticket.message,raised_by_name:raw.ticket.raised_by_name},order:raw.order,events:raw.events,order_history:raw.order_history}:raw;if(normalized.order&&raw.orderTimes)normalized.order={...normalized.order,...raw.orderTimes};setDetail(normalized as Detail);setNextStatus(String(normalized.complaint.status));setNextAssignee(String(normalized.complaint.assigned_to??''));setComment('');setResolution('');setInternalNote(false)}
     setDetailLoading(false)
   },[])
-  useRealtimeReload('admin-complaints-live',['complaints','complaint_events','support_tickets','support_ticket_events'],()=>{void load();if(selectedId)void loadDetail(selectedId)})
+  useEffect(()=>{setRows(initialRows);setUnreadTicketIds(initialUnreadTicketIds);setError(initialError);setLoading(false)},[initialRows,initialUnreadTicketIds,initialError])
+  useRealtimeReload('admin-complaints-live',['complaints','complaint_events','support_tickets','support_ticket_events'],()=>{router.refresh();if(selectedId)void loadDetail(selectedId)})
 
   useEffect(()=>{if(detail?.complaint.source!=='customer')return;const paths=(detail.complaint.photo_paths??[]) as string[];const client=createSupabaseBrowserClient();if(!client)return;let active=true;void Promise.all(paths.map(async path=>{const {data}=await client.storage.from('support-photos').createSignedUrl(path,3600);return[path,data?.signedUrl] as const})).then(entries=>{if(active)setCustomerPhotoUrls(Object.fromEntries(entries.filter((entry):entry is readonly[string,string]=>Boolean(entry[1]))))});return()=>{active=false}},[detail?.complaint.id])
 
@@ -137,7 +129,7 @@ export function ComplaintsWorkspace({ role, initialRows, initialUnreadTicketIds,
       {toast&&<div className="complaint-toast" role="status"><Check size={15}/>{toast}<button aria-label="Dismiss" onClick={()=>setToast('')}>×</button></div>}
       </>}
     </aside></div>}
-    {composer&&<ComplaintComposer order={null} onClose={()=>setComposer(false)} onCreated={id=>{setComposer(false);void load();if(id)openDetail(id)}}/>}
+    {composer&&<ComplaintComposer order={null} initialOrders={initialOrders} initialManagers={managers} onClose={()=>setComposer(false)} onCreated={id=>{setComposer(false);void load();if(id)openDetail(id)}}/>}
   </div>
 }
 

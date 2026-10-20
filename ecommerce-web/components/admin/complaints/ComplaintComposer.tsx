@@ -1,10 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { X } from 'lucide-react'
 import Link from 'next/link'
 import { raiseOrderComplaint } from '@/app/admin/complaints/actions'
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 export type ComplaintOrder = { order_id: number; customer_name: string; total: number; status: string }
 type Manager = { user_id: string; full_name: string }
@@ -14,10 +13,10 @@ const issueOptions = [
   ['picker_issue', 'Picker issue'], ['payment_refund', 'Payment / refund'], ['other', 'Other'],
 ]
 
-export function ComplaintComposer({ order, onClose, onCreated }: { order: ComplaintOrder | null; onClose: () => void; onCreated: (id: number) => void }) {
-  const [orders, setOrders] = useState<ComplaintOrder[]>([])
+export function ComplaintComposer({ order, initialOrders, initialManagers, onClose, onCreated }: { order: ComplaintOrder | null; initialOrders: ComplaintOrder[]; initialManagers: Manager[]; onClose: () => void; onCreated: (id: number) => void }) {
+  const [orders] = useState<ComplaintOrder[]>(initialOrders)
   const [selectedOrder, setSelectedOrder] = useState(order?.order_id ? String(order.order_id) : '')
-  const [managers, setManagers] = useState<Manager[]>([])
+  const [managers] = useState<Manager[]>(initialManagers)
   const [issueType, setIssueType] = useState('late_delivery')
   const [severity, setSeverity] = useState('medium')
   const [assignedTo, setAssignedTo] = useState('')
@@ -26,18 +25,6 @@ export function ComplaintComposer({ order, onClose, onCreated }: { order: Compla
   const [error, setError] = useState('')
   const [createdId, setCreatedId] = useState<number | null>(null)
   const [existingId, setExistingId] = useState<number | null>(null)
-
-  useEffect(() => {
-    const client = createSupabaseBrowserClient()
-    if (!client) return
-    void Promise.all([
-      client.rpc('admin_list_store_managers'),
-      order ? Promise.resolve({ data: [], error: null }) : client.rpc('admin_list_orders'),
-    ]).then(([managerResult, orderResult]) => {
-      setManagers((managerResult.data ?? []) as Manager[])
-      if (!order) setOrders(((orderResult.data ?? []) as Array<{ order_id: number; customer_name: string; total: number; status: string }>).map(row => ({ order_id: row.order_id, customer_name: row.customer_name, total: row.total, status: row.status })))
-    })
-  }, [order])
 
   const pickedOrder = order ?? orders.find(item => String(item.order_id) === selectedOrder) ?? null
   async function submit(event: React.FormEvent) {

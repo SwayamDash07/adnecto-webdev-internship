@@ -9,7 +9,7 @@ import { getAdminOverviewStats } from '@/lib/admin-overview-stats'
 export default async function AdminOverviewPage() {
   const profile = await getAdminProfile()
   const supabase = await createSupabaseServerClient()
-  const [{ data: recentRows, error: ordersError }, stats] = await Promise.all([supabase.rpc('admin_list_orders'), getAdminOverviewStats(profile?.role_name ?? null)])
+  const [{ data: recentRows, error: ordersError }, stats, managersResult] = await Promise.all([supabase.rpc('admin_list_orders'), getAdminOverviewStats(profile?.role_name ?? null), can(profile?.role_name, 'complaints:raise') ? supabase.rpc('admin_list_store_managers') : Promise.resolve({ data: [] })])
   const recent = (recentRows ?? []).map((row: { order_id: number; customer_name: string; total: number; status: string; created_at: string; delivery_slot_start: string | null; delivery_slot_end: string | null }) => ({ id: row.order_id, customer: row.customer_name, total: row.total, status: row.status, created_at: row.created_at, delivery_slot_start: row.delivery_slot_start, delivery_slot_end: row.delivery_slot_end })) as Recent[]
   let lateOrders: LateOrder[] = []
   let lowStock: LowStock[] = []
@@ -26,5 +26,5 @@ export default async function AdminOverviewPage() {
   const greeting = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'
   const today = new Intl.DateTimeFormat('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }).format(new Date())
 
-  return <AdminShell title={`Good ${greeting}, ${name}`} description={today}><Overview role={profile?.role_name ?? null} initialOrders={recent} initialLateOrders={lateOrders} initialLowStock={lowStock} initialError={dataError} initialSummary={stats.summary} initialYesterday={stats.yesterday} /></AdminShell>
+  return <AdminShell title={`Good ${greeting}, ${name}`} description={today}><Overview role={profile?.role_name ?? null} initialOrders={recent} initialLateOrders={lateOrders} initialLowStock={lowStock} initialError={dataError} initialSummary={stats.summary} initialYesterday={stats.yesterday} initialManagers={(managersResult.data ?? []) as { user_id: string; full_name: string }[]} /></AdminShell>
 }

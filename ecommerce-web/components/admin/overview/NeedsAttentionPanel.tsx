@@ -67,7 +67,7 @@ function LateOrderActions({ order, complaintsHref, onReminded, onComplaint, onSu
   </div>
 }
 
-export function NeedsAttentionPanel({ loading, error, orders, lateOrders, lowStock, role, ordersHref, inventoryHref, deliveryHref, onReload }: { loading: boolean; error: string; orders: Recent[]; lateOrders: LateOrder[]; lowStock: LowStock[]; role: string | null; ordersHref: string; inventoryHref: string; deliveryHref: string; onReload: () => void }) {
+export function NeedsAttentionPanel({ loading, error, orders, lateOrders, lowStock, role, ordersHref, inventoryHref, deliveryHref, initialManagers, onReload }: { loading: boolean; error: string; orders: Recent[]; lateOrders: LateOrder[]; lowStock: LowStock[]; role: string | null; ordersHref: string; inventoryHref: string; deliveryHref: string; initialManagers: Array<{ user_id: string; full_name: string }>; onReload: () => void }) {
   const now = useIstNow()
   const picker = !can(role, 'reports:view')
   const admin = can(role, 'complaints:raise')
@@ -97,7 +97,7 @@ export function NeedsAttentionPanel({ loading, error, orders, lateOrders, lowSto
         <section className="attention-section attention-deliveries"><div className="attention-section-heading"><PackageCheck size={15}/><h3>Deliveries in progress</h3><Link href={deliveryHref}>Delivery <ArrowRight size={13}/></Link></div><div className="attention-delivery-summary"><strong>{deliveries.length}</strong><span>{deliveries.length===1?'order is':'orders are'} out for delivery</span></div></section>
       </div>}
     </div> : <div className="overview-all-caught-up"><span>✓</span><strong>All caught up</strong><small>Nothing needs your attention right now.</small></div>}
-    {composerOpen && <ComplaintComposer order={complaintOrder} onClose={() => setComposerOpen(false)} onCreated={() => onReload()} />}
+    {composerOpen && <ComplaintComposer order={complaintOrder} initialOrders={[]} initialManagers={initialManagers} onClose={() => setComposerOpen(false)} onCreated={() => onReload()} />}
     {toast&&<div className="admin-action-toast" role="status"><CheckCircle2 size={17}/><span>{toast}</span><button aria-label="Dismiss" onClick={()=>setToast('')}><X size={15}/></button></div>}
   </section>
 }
