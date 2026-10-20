@@ -4,6 +4,7 @@ import { CustomerNotifications } from '@/components/customer/customer-notificati
 import { requireCustomerRoute } from '@/lib/customer-auth'
 
 export default async function CustomerAccountPage() {
-  await requireCustomerRoute('/customer/account')
-  return <CustomerPage title="Your account" description="Manage your profile and saved delivery addresses." cards={[]}><CustomerAccount /><CustomerNotifications /></CustomerPage>
+  const { supabase } = await requireCustomerRoute('/customer/account')
+  const { data } = await supabase.rpc('customer_list_notifications')
+  return <CustomerPage title="Your account" description="Manage your profile and saved delivery addresses." cards={[]}><CustomerAccount /><CustomerNotifications initialItems={(data ?? []) as import('@/components/customer/customer-notifications').CustomerNotification[]} /></CustomerPage>
 }
