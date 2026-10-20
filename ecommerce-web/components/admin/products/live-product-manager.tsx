@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
-import { usePathname, useSearchParams } from 'next/navigation'
+import { useEffect, useMemo, useState, useTransition } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { ChevronDown, MoreHorizontal, Package, Pencil, Plus, RefreshCw, Search, X } from 'lucide-react'
 import { AdminShell } from '../admin-shell'
 import { ProductFormFields } from './product-form-fields'
@@ -20,6 +20,8 @@ const addHref = `${routeBase}/products/new`
 export function LiveProductManager({ initialProducts, initialError, initialFilters }: { initialProducts: AdminProduct[]; initialError: string; initialFilters: Record<'search' | 'category' | 'status' | 'stock' | 'sort' | 'page', string> }) {
   const searchParams = useSearchParams()
   const pathname = usePathname()
+  const router = useRouter()
+  const [, startTransition] = useTransition()
   const canCreate = useCan('products:create')
   const canDisable = useCan('products:disable')
   const [products, setProducts] = useState<AdminProduct[]>(initialProducts)
@@ -50,6 +52,12 @@ export function LiveProductManager({ initialProducts, initialError, initialFilte
   }, [pathname, searchParams])
 
   useEffect(() => {
+    setProducts(initialProducts)
+    setError(initialError)
+    setLoading(false)
+  }, [initialProducts, initialError])
+
+  useEffect(() => {
     const timer = window.setTimeout(() => {
       const url = new URL(window.location.href)
       const values = { search: query.trim(), category, status, stock, sort, page: page > 1 ? String(page) : '' }
@@ -57,21 +65,13 @@ export function LiveProductManager({ initialProducts, initialError, initialFilte
         if (!value || (key !== 'search' && key !== 'page' && value === ({ category: 'all', status: 'all', stock: 'all', sort: 'name' } as Record<string, string>)[key])) url.searchParams.delete(key)
         else url.searchParams.set(key, value)
       }
-      window.history.replaceState(null, '', url.pathname + url.search)
+      startTransition(() => router.replace(url.pathname + url.search, { scroll: false }))
     }, 300)
     return () => window.clearTimeout(timer)
-  }, [query, category, status, stock, sort, page])
+  }, [query, category, status, stock, sort, page, router])
 
-  async function load() {
-    const client = createSupabaseBrowserClient()
-    if (!client) { setLoading(false); setError('Unable to connect to the product service.'); return }
-    setLoading(true); setError('')
-    const { data, error: queryError } = await client.rpc('admin_list_products')
-    if (queryError) setError(queryError.message)
-    else setProducts((data ?? []) as AdminProduct[])
-    setLoading(false)
-  }
-  useRealtimeReload('admin-products-live', ['products', 'inventory'], () => { void load() })
+  function load() { setLoading(true); startTransition(() => router.refresh()) }
+  useRealtimeReload('admin-products-live', ['products', 'inventory'], load)
 
   const filtered = useMemo(() => {
     const search = query.trim().toLowerCase()
