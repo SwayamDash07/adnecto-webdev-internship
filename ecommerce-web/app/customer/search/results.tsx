@@ -1,5 +1,3 @@
-'use client'
-
 import { CatalogueBrowser } from '@/components/customer/products/catalogue-browser'
 import type { ComponentProps } from 'react'
 

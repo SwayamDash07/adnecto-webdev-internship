@@ -1,5 +1,3 @@
-'use client'
-
 import Link from 'next/link'
 import { money } from '@/lib/formatters'
 import type { Product } from '@/types/catalog'
