@@ -12,7 +12,7 @@ import { formatDeliverySlot } from '@/lib/delivery-slot'
 import { useIstNow } from '@/hooks/use-ist-now'
 import { SupportChatThread, type SupportChatMessage } from '@/components/shared/support-chat-thread'
 
-type Complaint = { complaint_id: number; source:'staff'|'customer'; order_id: number|null; customer_name: string; customer_email: string; issue_type: string; severity: string; status: string; assigned_to: string | null; assigned_name: string | null; orders_status_at_filing: string; current_order_status: string; created_at: string; updated_at: string; resolved_at: string|null; raised_by: string; raised_by_name: string; notes: string }
+export type Complaint = { complaint_id: number; source:'staff'|'customer'; order_id: number|null; customer_name: string; customer_email: string; issue_type: string; severity: string; status: string; assigned_to: string | null; assigned_name: string | null; orders_status_at_filing: string; current_order_status: string; created_at: string; updated_at: string; resolved_at: string|null; raised_by: string; raised_by_name: string; notes: string }
 type Detail = { complaint: Record<string, any>; order: Record<string, any>; events: Array<Record<string, any>>; order_history: Array<Record<string, any>> }
 type Manager = { user_id: string; full_name: string }
 const issueLabels: Record<string,string> = { late_delivery:'Late delivery',wrong_item:'Wrong item',damaged:'Damaged item',picker_issue:'Picker issue',payment_refund:'Payment / refund',other:'Other',wrong_update:'Wrong or missing update',change_address_slot:'Change address or slot',payment_problem:'Payment problem',delivered_damaged:'Damaged or defective',missing_item:'Missing item',quality_problem:'Quality problem',invoice_problem:'Billing or invoice',refund_not_received:'Refund not received',cancelled_without_request:'Cancelled without request',account_login:'Account or login',payment_coupon:'Payment or coupon',product_question:'Product question' }
@@ -20,18 +20,18 @@ const severityOrder: Record<string,number> = { high:0,medium:1,low:2 }
 function relative(value: string) { const age=Date.now()-Date.parse(value); const hours=Math.floor(age/3600000); return hours<24?`${Math.max(0,hours)}h ago`:`${Math.floor(hours/24)}d ago` }
 function durationLabel(milliseconds: number) { const hours=Math.max(0,Math.round(milliseconds/3600000)); return hours<24?`${hours}h`:`${Math.floor(hours/24)}d` }
 
-export function ComplaintsWorkspace({ role }: { role: string }) {
+export function ComplaintsWorkspace({ role, initialRows, initialUnreadTicketIds, initialManagers, initialUserId, initialError }: { role: string; initialRows: Complaint[]; initialUnreadTicketIds: number[]; initialManagers: Manager[]; initialUserId: string; initialError: string }) {
   const now=useIstNow()
   const router = useRouter()
-  const [rows,setRows]=useState<Complaint[]>([])
-  const [unreadTicketIds,setUnreadTicketIds]=useState<number[]>([])
-  const [managers,setManagers]=useState<Manager[]>([])
+  const [rows,setRows]=useState<Complaint[]>(initialRows)
+  const [unreadTicketIds,setUnreadTicketIds]=useState<number[]>(initialUnreadTicketIds)
+  const [managers]=useState<Manager[]>(initialManagers)
   const [detail,setDetail]=useState<Detail|null>(null)
   const [selectedId,setSelectedId]=useState<number|null>(null)
-  const [userId,setUserId]=useState('')
-  const [loading,setLoading]=useState(true)
+  const [userId]=useState(initialUserId)
+  const [loading,setLoading]=useState(false)
   const [detailLoading,setDetailLoading]=useState(false)
-  const [error,setError]=useState('')
+  const [error,setError]=useState(initialError)
   const [query,setQuery]=useState('')
   const [status,setStatus]=useState('all')
   const [severity,setSeverity]=useState('all')
@@ -66,7 +66,6 @@ export function ComplaintsWorkspace({ role }: { role: string }) {
     const canViewStaff=can(String(profile.data?.[0]?.role_name??''),'orders:view')
     const [{data,error:queryError},{data:customerData,error:customerError},{data:unreadData}]=await Promise.all([canViewStaff?client.rpc('admin_list_complaints'):Promise.resolve({data:[],error:null}),client.rpc('admin_list_customer_support_tickets'),client.rpc('admin_list_unread_support_tickets')])
     setUnreadTicketIds(((unreadData??[]) as number[]).map(Number));if(queryError||customerError)setError(queryError?.message??customerError?.message??'Could not load complaints');else{const staff=((data??[]) as Complaint[]).map(row=>({...row,source:'staff' as const}));const customers=(customerData??[] as Record<string,unknown>[]).map((raw:any)=>({...raw,complaint_id:-Number(raw.ticket_id),source:'customer' as const,assigned_to:null,assigned_name:null,orders_status_at_filing:raw.current_order_status,raised_by_name:raw.customer_name} as Complaint));setRows([...staff,...customers])}
-    if(profile.data?.[0]?.id)setUserId(String(profile.data[0].id))
     setLoading(false)
   },[])
   const loadDetail=useCallback(async(id:number)=>{
@@ -76,8 +75,6 @@ export function ComplaintsWorkspace({ role }: { role: string }) {
     if(detailError){setError(detailError.message);setDetail(null)}else{const raw=data as any;const normalized=customer?{complaint:{...raw.ticket,id:-Number(raw.ticket.id),source:'customer',issue_type:raw.ticket.issue_type,severity:raw.ticket.priority,notes:raw.ticket.message,raised_by_name:raw.ticket.raised_by_name},order:raw.order,events:raw.events,order_history:raw.order_history}:raw;const orderId=Number(normalized.order?.order_id);if(orderId){const {data:orderTimes}=await client.from('orders').select('status,delivery_slot,delivery_slot_start,delivery_slot_end,delivered_at').eq('id',orderId).maybeSingle();if(orderTimes)normalized.order={...normalized.order,...orderTimes}}setDetail(normalized as Detail);setNextStatus(String(normalized.complaint.status));setNextAssignee(String(normalized.complaint.assigned_to??''));setComment('');setResolution('');setInternalNote(false)}
     setDetailLoading(false)
   },[])
-  useEffect(()=>{void load()},[load])
-  useEffect(()=>{const client=createSupabaseBrowserClient();if(!client)return;void client.rpc('admin_list_store_managers').then(({data})=>setManagers((data??[]) as Manager[]))},[])
   useRealtimeReload('admin-complaints-live',['complaints','complaint_events','support_tickets','support_ticket_events'],()=>{void load();if(selectedId)void loadDetail(selectedId)})
 
   useEffect(()=>{if(detail?.complaint.source!=='customer')return;const paths=(detail.complaint.photo_paths??[]) as string[];const client=createSupabaseBrowserClient();if(!client)return;let active=true;void Promise.all(paths.map(async path=>{const {data}=await client.storage.from('support-photos').createSignedUrl(path,3600);return[path,data?.signedUrl] as const})).then(entries=>{if(active)setCustomerPhotoUrls(Object.fromEntries(entries.filter((entry):entry is readonly[string,string]=>Boolean(entry[1]))))});return()=>{active=false}},[detail?.complaint.id])
