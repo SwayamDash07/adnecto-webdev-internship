@@ -7,8 +7,8 @@ import { OrderQueueToolbar } from './orders/order-queue-toolbar'
 import { OrderQueueTable } from './orders/order-queue-table'
 import { money } from '@/lib/formatters'
 
-export default function AdminOrderQueue({ initialOrders, initialRefundOrderIds, initialError, initialNow }: { initialOrders: import('@/types/admin-orders').AdminOrder[]; initialRefundOrderIds: number[]; initialError: string; initialNow: string }) {
-  const queue = useAdminOrderQueue({ initialOrders, initialRefundOrderIds, initialError, initialNow })
+export default function AdminOrderQueue({ initialOrders, initialRefundOrderIds, initialError, initialNow, initialFilters }: { initialOrders: import('@/types/admin-orders').AdminOrder[]; initialRefundOrderIds: number[]; initialError: string; initialNow: string; initialFilters: { search: string; date: string; status: string } }) {
+  const queue = useAdminOrderQueue({ initialOrders, initialRefundOrderIds, initialError, initialNow, initialFilters })
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   useEffect(() => {
     if (!queue.loading && !queue.error) setLastUpdated(new Date())
