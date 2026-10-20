@@ -1,12 +1,14 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { AdminShell } from '../admin-shell'
 import { type InventoryAdjustment } from '@/lib/services/admin'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { useRealtimeReload } from '@/lib/use-realtime-reload'
 import { Can } from '@/lib/use-can'
 import { ArrowDownRight, ArrowUpRight, RefreshCw, Search, X } from 'lucide-react'
+import { getInventoryAdjustmentPage } from '@/app/admin/inventory/actions'
 
 export type InventoryItem = { product_id: number; product_name: string; sku: string | null; current_stock: number; reserved_stock: number; reorder_level: number }
 export type AdjustmentLogRow = { adjustment_id: number; created_at: string; product_name: string; sku: string | null; warehouse: string; quantity_change: number; reason: string; done_by: string }
@@ -26,6 +28,8 @@ const available = (item: InventoryItem) => Math.max(0, item.current_stock - item
 const stateOf = (item: InventoryItem): StateFilter => available(item) <= 0 ? 'out' : available(item) <= item.reorder_level ? 'low' : 'healthy'
 
 export function InventoryManager({ initialItems, initialLog, initialFilters, initialErrors }: { initialItems: InventoryItem[]; initialLog: AdjustmentLogRow[]; initialFilters: { stock: string; logSearch: string }; initialErrors: { inventory: string; log: string } }) {
+  const router = useRouter()
+  const [, startTransition] = useTransition()
   const [pageSize, setPageSize] = useState(10)
   const [tab, setTab] = useState<InventoryTab>('Stock')
   const [stockFilter, setStockFilter] = useState(initialFilters.stock === 'low')
@@ -45,37 +49,23 @@ export function InventoryManager({ initialItems, initialLog, initialFilters, ini
   const [logError, setLogError] = useState(initialErrors.log)
   const [logLoading, setLogLoading] = useState(false)
   const [logLoadingMore, setLogLoadingMore] = useState(false)
-  const [logHasMore, setLogHasMore] = useState(false)
+  const [logHasMore, setLogHasMore] = useState(initialLog.length === PAGE_SIZE)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [confirmLarge, setConfirmLarge] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
-  const load = useCallback(async () => {
-    const client = createSupabaseBrowserClient()
-    if (!client) { setLoading(false); setError('Inventory service is unavailable.'); return }
-    setLoading(true)
-    try {
-      const { data, error: queryError } = await client.rpc('admin_list_inventory')
-      if (queryError) { logInventoryError('admin_list_inventory', queryError); setError('We could not load inventory. Please try again.') }
-      else { setError(''); setItems((data ?? []) as InventoryItem[]); setLastUpdated(new Date()) }
-    } catch (error) { logInventoryError('admin_list_inventory', error); setError('We could not load inventory. Please try again.') }
-    finally { setLoading(false) }
-  }, [])
+  const load = useCallback(() => { setLoading(true); startTransition(() => router.refresh()) }, [router, startTransition])
 
   const loadAdjustmentLog = useCallback(async (offset = 0, append = false, search = logSearch) => {
-    const client = createSupabaseBrowserClient()
-    if (!client) { setLogError('The adjustment log is unavailable. Please try again.'); setLogLoading(false); setLogLoadingMore(false); return }
     setLogError('')
     if (append) setLogLoadingMore(true)
     else setLogLoading(true)
     try {
-      const { data, error: queryError } = await client.rpc('admin_list_inventory_adjustments', { p_limit: PAGE_SIZE, p_offset: offset, p_search: search || null })
+      const { rows, error: queryError } = await getInventoryAdjustmentPage(offset, search)
       if (queryError) {
-        logInventoryError('admin_list_inventory_adjustments', queryError)
-        setLogError(isPermissionError(queryError) ? 'You do not have permission to view the adjustment log.' : 'We could not load the adjustment log. Please try again.')
+        setLogError('We could not load the adjustment log. Please try again.')
       } else {
-        const rows = (data ?? []) as AdjustmentLogRow[]
         setAdjustmentLog(current => append ? [...current, ...rows] : rows)
         setLogHasMore(rows.length === PAGE_SIZE)
       }
@@ -83,10 +73,9 @@ export function InventoryManager({ initialItems, initialLog, initialFilters, ini
     finally { setLogLoading(false); setLogLoadingMore(false) }
   }, [logSearch])
 
-  const initialLogSearch = useRef(initialFilters.logSearch)
-  useEffect(() => { if (logSearch !== initialLogSearch.current) void loadAdjustmentLog(0, false, logSearch) }, [loadAdjustmentLog, logSearch])
-  useEffect(() => { const timer = window.setTimeout(() => setLogSearch(logSearchDraft.trim()), 300); return () => window.clearTimeout(timer) }, [logSearchDraft])
-  useRealtimeReload('admin-inventory-live', ['inventory', 'products', 'inventory_movements'], () => { void load(); void loadAdjustmentLog(0, false, logSearch) })
+  useEffect(() => { setItems(initialItems); setError(initialErrors.inventory); setLoading(false); setAdjustmentLog(initialLog); setLogError(initialErrors.log); setLogHasMore(initialLog.length === PAGE_SIZE); setLogSearchDraft(initialFilters.logSearch); setLogSearch(initialFilters.logSearch); setLastUpdated(new Date()) }, [initialItems, initialLog, initialErrors.inventory, initialErrors.log, initialFilters.logSearch])
+  useEffect(() => { const timer = window.setTimeout(() => { const value = logSearchDraft.trim(); setLogSearch(value); const url = new URL(window.location.href); if (value) url.searchParams.set('logSearch', value); else url.searchParams.delete('logSearch'); startTransition(() => router.replace(url.pathname + url.search, { scroll: false })) }, 300); return () => window.clearTimeout(timer) }, [logSearchDraft, router, startTransition])
+  useRealtimeReload('admin-inventory-live', ['inventory', 'products', 'inventory_movements'], load)
 
   const counts = useMemo(() => ({
     all: items.length,
@@ -131,7 +120,7 @@ export function InventoryManager({ initialItems, initialLog, initialFilters, ini
     try {
       const { error: updateError } = await client.rpc('admin_adjust_inventory_with_batch', { p_product_id: item.product_id, p_delta: delta, p_reason: adjustment.reason === 'Other' ? `Other: ${otherNote.trim()}` : adjustment.reason, p_batch_number: null, p_expiry_date: null })
       if (updateError) { logInventoryError('admin_adjust_inventory_with_batch', updateError); setError('We could not save this stock adjustment. Please try again.') }
-      else { setMessage('Inventory updated successfully.'); setAdjustment(current => ({ ...current, quantity: '' })); setOtherNote(''); setConfirmLarge(false); await Promise.all([load(), loadAdjustmentLog(0, false, logSearch)]) }
+      else { setMessage('Inventory updated successfully.'); setAdjustment(current => ({ ...current, quantity: '' })); setOtherNote(''); setConfirmLarge(false); load() }
     } catch (error) { logInventoryError('admin_adjust_inventory_with_batch', error); setError('We could not save this stock adjustment. Please try again.') }
     finally { setSaving(false) }
   }
