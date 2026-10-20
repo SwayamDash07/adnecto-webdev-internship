@@ -14,16 +14,16 @@ const statusLabel = (value: string) => value === 'ordered' ? 'Sent' : value.repl
 const date = (value: string) => new Date(value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 const poNumber = (order: PurchaseOrder) => `PO-${String(order.purchase_order_id).padStart(4, '0')}`
 
-export function LivePurchaseManagerV2() {
-  const [orders, setOrders] = useState<PurchaseOrder[]>([])
-  const [products, setProducts] = useState<AdminProduct[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [query, setQuery] = useState('')
-  const [status, setStatus] = useState<StatusFilter>('all')
-  const [supplier, setSupplier] = useState('all')
-  const [sort, setSort] = useState('newest')
-  const [page, setPage] = useState(1)
+export function LivePurchaseManagerV2({ initialOrders, initialProducts, initialName, initialError, initialFilters }: { initialOrders: PurchaseOrder[]; initialProducts: AdminProduct[]; initialName: string; initialError: string; initialFilters: { search: string; status: string; supplier: string; sort: string; page: string } }) {
+  const [orders, setOrders] = useState<PurchaseOrder[]>(initialOrders)
+  const [products, setProducts] = useState<AdminProduct[]>(initialProducts)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(initialError)
+  const [query, setQuery] = useState(initialFilters.search)
+  const [status, setStatus] = useState<StatusFilter>((initialFilters.status || 'all') as StatusFilter)
+  const [supplier, setSupplier] = useState(initialFilters.supplier || 'all')
+  const [sort, setSort] = useState(initialFilters.sort || 'newest')
+  const [page, setPage] = useState(Math.max(1, Number(initialFilters.page) || 1))
   const [pageSize, setPageSize] = useState(10)
   const [drawer, setDrawer] = useState<'create' | 'detail' | null>(null)
   const [selected, setSelected] = useState<PurchaseOrder | null>(null)
@@ -37,7 +37,7 @@ export function LivePurchaseManagerV2() {
   const [pendingCreated, setPendingCreated] = useState<PurchaseOrder | null>(null)
   const [transitioningId, setTransitioningId] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
-  const [adminName, setAdminName] = useState('Cartly admin')
+  const [adminName, setAdminName] = useState(initialName)
 
   async function load() {
     setLoading(true); setError('')
@@ -51,7 +51,7 @@ export function LivePurchaseManagerV2() {
     if (profile?.full_name) setAdminName(String(profile.full_name))
     setLoading(false)
   }
-  useEffect(() => { void load() }, [])
+  useEffect(() => { const timer = window.setTimeout(() => { const url = new URL(window.location.href); const values = { search: query.trim(), status: status === 'all' ? '' : status, supplier: supplier === 'all' ? '' : supplier, sort: sort === 'newest' ? '' : sort, page: page > 1 ? String(page) : '' }; for (const [key, value] of Object.entries(values)) { if (value) url.searchParams.set(key, value); else url.searchParams.delete(key) } window.history.replaceState(null, '', url.pathname + url.search) }, 300); return () => window.clearTimeout(timer) }, [query, status, supplier, sort, page])
   useRealtimeReload('admin-purchase-orders-v2-live', ['purchase_orders', 'purchase_items', 'products', 'inventory'], () => { void load() })
 
   const suppliers = useMemo(() => Array.from(new Set(orders.map(order => order.supplier_name).filter(Boolean))).sort((a, b) => a.localeCompare(b)), [orders])
