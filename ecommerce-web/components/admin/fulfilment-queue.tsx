@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { AdminShell } from "./admin-shell";
 import { Can } from "@/lib/use-can";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -100,6 +101,8 @@ function lateBy(order: FulfilmentOrder, now: Date) {
 
 export function FulfilmentQueue({ queue, initialOrders, initialError, initialFilters }: { queue: Queue; initialOrders: FulfilmentOrder[]; initialError: string; initialFilters: { search: string; status: string; sort: string } }) {
   const now = useIstNow();
+  const router = useRouter();
+  const [, startTransition] = useTransition();
   const [orders, setOrders] = useState<FulfilmentOrder[]>(initialOrders);
   const [error, setError] = useState(initialError);
   const [loading, setLoading] = useState(false);
@@ -131,57 +134,41 @@ export function FulfilmentQueue({ queue, initialOrders, initialError, initialFil
   const demoSubmitting = useRef(false);
   const orderIds = useRef<number[]>(initialOrders.map(order => order.order_id));
 
-  const load = useCallback(
-    async (quiet = false) => {
-      if (quiet) setRefreshing(true);
-      else setLoading(true);
-      const client = createSupabaseBrowserClient();
-      if (!client) {
-        setError("Supabase browser configuration is missing.");
-        setLoading(false);
-        setRefreshing(false);
-        return;
-      }
-      const { data, error: queryError } = await client.rpc(
-        "admin_list_fulfilment_orders",
-        { p_queue: queue },
-      );
-      if (queryError) setError(queryError.message);
-      else {
-        const next = (data ?? []) as FulfilmentOrder[];
-        const newIds = next
-          .filter((order) => !orderIds.current.includes(order.order_id))
-          .map((order) => order.order_id);
-        if (quiet && orderIds.current.length) {
-          setHighlightIds(newIds);
-          if (newIds.length) window.setTimeout(() => setHighlightIds([]), 2400);
-        }
-        orderIds.current = next.map((order) => order.order_id);
-        setOrders(next);
-        setError("");
-        setLastUpdated(new Date());
-      }
-      setLoading(false);
-      setRefreshing(false);
-    },
-    [queue],
-  );
+  const load = useCallback((quiet = false) => {
+    if (quiet) setRefreshing(true);
+    else setLoading(true);
+    startTransition(() => router.refresh());
+  }, [router]);
+
+  useEffect(() => {
+    const newIds = initialOrders.filter(order => !orderIds.current.includes(order.order_id)).map(order => order.order_id);
+    if (orderIds.current.length && newIds.length) {
+      setHighlightIds(newIds);
+      window.setTimeout(() => setHighlightIds([]), 2400);
+    }
+    orderIds.current = initialOrders.map(order => order.order_id);
+    setOrders(initialOrders);
+    setError(initialError);
+    setLoading(false);
+    setRefreshing(false);
+    setLastUpdated(new Date());
+  }, [initialOrders, initialError]);
 
   useEffect(() => {
     const client = createSupabaseBrowserClient();
     if (client) {
       const channel = client
-        .channel(`fulfilment-${queue}`)
+        .channel(`fulfilment-${queue}-${crypto.randomUUID()}`)
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "orders" },
           () => {
-            void load(true);
+            load(true);
           },
         )
         .subscribe();
       autoRefresh.current = setInterval(() => {
-        void load(true);
+        load(true);
       }, 30000);
       return () => {
         void channel.unsubscribe();
@@ -199,10 +186,10 @@ export function FulfilmentQueue({ queue, initialOrders, initialError, initialFil
       if (query.trim()) url.searchParams.set('search', query.trim()); else url.searchParams.delete('search');
       if (activeFilter !== 'all') url.searchParams.set('status', activeFilter); else url.searchParams.delete('status');
       if (sort !== 'urgent') url.searchParams.set('sort', sort); else url.searchParams.delete('sort');
-      window.history.replaceState(null, '', url.pathname + url.search);
+      startTransition(() => router.replace(url.pathname + url.search, { scroll: false }));
     }, 300);
     return () => window.clearTimeout(timer);
-  }, [query, activeFilter, sort]);
+  }, [query, activeFilter, sort, router]);
 
   const filteredOrders = useMemo(() => {
     const rows = orders.filter((order) => {
