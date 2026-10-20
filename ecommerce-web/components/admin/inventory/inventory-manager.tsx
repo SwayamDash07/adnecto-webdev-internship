@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AdminShell } from '../admin-shell'
 import { type InventoryAdjustment } from '@/lib/services/admin'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
@@ -8,8 +8,8 @@ import { useRealtimeReload } from '@/lib/use-realtime-reload'
 import { Can } from '@/lib/use-can'
 import { ArrowDownRight, ArrowUpRight, RefreshCw, Search, X } from 'lucide-react'
 
-type InventoryItem = { product_id: number; product_name: string; sku: string | null; current_stock: number; reserved_stock: number; reorder_level: number }
-type AdjustmentLogRow = { adjustment_id: number; created_at: string; product_name: string; sku: string | null; warehouse: string; quantity_change: number; reason: string; done_by: string }
+export type InventoryItem = { product_id: number; product_name: string; sku: string | null; current_stock: number; reserved_stock: number; reorder_level: number }
+export type AdjustmentLogRow = { adjustment_id: number; created_at: string; product_name: string; sku: string | null; warehouse: string; quantity_change: number; reason: string; done_by: string }
 type StateFilter = 'all' | 'healthy' | 'low' | 'out'
 type InventoryTab = 'Stock' | 'Adjustment log'
 const PAGE_SIZE = 20
@@ -25,10 +25,10 @@ function isPermissionError(error: unknown) {
 const available = (item: InventoryItem) => Math.max(0, item.current_stock - item.reserved_stock)
 const stateOf = (item: InventoryItem): StateFilter => available(item) <= 0 ? 'out' : available(item) <= item.reorder_level ? 'low' : 'healthy'
 
-export function InventoryManager() {
+export function InventoryManager({ initialItems, initialLog, initialFilters, initialErrors }: { initialItems: InventoryItem[]; initialLog: AdjustmentLogRow[]; initialFilters: { stock: string; logSearch: string }; initialErrors: { inventory: string; log: string } }) {
   const [pageSize, setPageSize] = useState(10)
   const [tab, setTab] = useState<InventoryTab>('Stock')
-  const [stockFilter, setStockFilter] = useState(false)
+  const [stockFilter, setStockFilter] = useState(initialFilters.stock === 'low')
   const [stateFilter, setStateFilter] = useState<StateFilter>('all')
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<'attention' | 'name' | 'available'>('attention')
@@ -36,17 +36,17 @@ export function InventoryManager() {
   const [adjustment, setAdjustment] = useState<InventoryAdjustment>({ product: '', warehouse: 'Mumbai Central', quantity: '', reason: 'Stock correction' })
   const [otherNote, setOtherNote] = useState('')
   const [direction, setDirection] = useState<'add' | 'remove'>('add')
-  const [items, setItems] = useState<InventoryItem[]>([])
+  const [items, setItems] = useState<InventoryItem[]>(initialItems)
   const [message, setMessage] = useState('')
-  const [error, setError] = useState('')
-  const [adjustmentLog, setAdjustmentLog] = useState<AdjustmentLogRow[]>([])
-  const [logSearchDraft, setLogSearchDraft] = useState('')
-  const [logSearch, setLogSearch] = useState('')
-  const [logError, setLogError] = useState('')
-  const [logLoading, setLogLoading] = useState(true)
+  const [error, setError] = useState(initialErrors.inventory)
+  const [adjustmentLog, setAdjustmentLog] = useState<AdjustmentLogRow[]>(initialLog)
+  const [logSearchDraft, setLogSearchDraft] = useState(initialFilters.logSearch)
+  const [logSearch, setLogSearch] = useState(initialFilters.logSearch)
+  const [logError, setLogError] = useState(initialErrors.log)
+  const [logLoading, setLogLoading] = useState(false)
   const [logLoadingMore, setLogLoadingMore] = useState(false)
   const [logHasMore, setLogHasMore] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [confirmLarge, setConfirmLarge] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -83,8 +83,8 @@ export function InventoryManager() {
     finally { setLogLoading(false); setLogLoadingMore(false) }
   }, [logSearch])
 
-  useEffect(() => { setStockFilter(new URLSearchParams(window.location.search).get('stock') === 'low'); void load() }, [load])
-  useEffect(() => { void loadAdjustmentLog() }, [loadAdjustmentLog])
+  const initialLogSearch = useRef(initialFilters.logSearch)
+  useEffect(() => { if (logSearch !== initialLogSearch.current) void loadAdjustmentLog(0, false, logSearch) }, [loadAdjustmentLog, logSearch])
   useEffect(() => { const timer = window.setTimeout(() => setLogSearch(logSearchDraft.trim()), 300); return () => window.clearTimeout(timer) }, [logSearchDraft])
   useRealtimeReload('admin-inventory-live', ['inventory', 'products', 'inventory_movements'], () => { void load(); void loadAdjustmentLog(0, false, logSearch) })
 
