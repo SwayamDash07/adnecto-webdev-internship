@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { CalendarDays, CheckCircle2, MapPin, Package, Truck } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { money } from '@/lib/formatters'
@@ -36,9 +37,9 @@ function ReturnTracker({refund}:{refund:Refund}){const active=returnSteps.indexO
 const one = <T,>(value: T | T[] | null | undefined): T | null => Array.isArray(value) ? value[0] ?? null : value ?? null
 
 export function CustomerOrders({ initialOrders, initialError = '', userId, initialNow }: { initialOrders: Order[]; initialError?: string; userId: string | null; initialNow: string }) {
+  const router = useRouter()
   const now = useIstNow(initialNow)
   const [orders, setOrders] = useState<Order[]>(initialOrders)
-  const [initialLoading, setInitialLoading] = useState(false)
   const [error, setError] = useState(initialError)
   const [busy, setBusy] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<OrderTab>('shipping')
@@ -46,26 +47,19 @@ export function CustomerOrders({ initialOrders, initialError = '', userId, initi
   const [refundOrder, setRefundOrder] = useState<Order | null>(null)
   const [toast, setToast] = useState('')
 
-  async function load() {
-    const client = createSupabaseBrowserClient()
-    if (!client) { setError('Orders are unavailable right now.'); setInitialLoading(false); return }
-    const { data, error: queryError } = await client.from('orders')
-      .select('id,address_id,status,total,created_at,delivered_at,refund_pricing_complete,delivery_slot,delivery_slot_start,delivery_slot_end,addresses(label,line1,city,postal_code),payments(method),refunds(id,amount,final_amount,fee_amount,status,type,pickup_slot,picked_up_at,received_at,reason,decision_note,created_at,decided_at,refund_events(to_status,note,created_at)),order_items(id,quantity,unit_price,gst_amount,discount_amount,products!order_items_product_id_fkey(name,is_returnable,product_images(storage_path,sort_order)))')
-      .order('created_at', { ascending: false })
-    if (queryError) setError(queryError.message)
-    else { setError(''); setOrders((data ?? []) as unknown as Order[]) }
-    setInitialLoading(false)
-  }
+  useEffect(() => { setOrders(initialOrders); setError(initialError) }, [initialOrders, initialError])
 
   useEffect(() => {
     const client = createSupabaseBrowserClient()
     if (!client || !userId) return
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined
+    const refresh = () => { if (refreshTimer) clearTimeout(refreshTimer); refreshTimer = setTimeout(() => router.refresh(), 300) }
     const channel = client.channel(`customer-orders-${userId}-${crypto.randomUUID()}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `user_id=eq.${userId}` }, () => { void load() })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'refunds', filter: `requested_by=eq.${userId}` }, () => { void load() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `user_id=eq.${userId}` }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'refunds', filter: `requested_by=eq.${userId}` }, refresh)
       .subscribe()
-    return () => { void client.removeChannel(channel) }
-  }, [userId])
+    return () => { if (refreshTimer) clearTimeout(refreshTimer); void client.removeChannel(channel) }
+  }, [router, userId])
 
   const groupedOrders = useMemo(() => ({
     shipping: orders.filter(order => tabForStatus(order.status) === 'shipping'),
@@ -80,11 +74,11 @@ export function CustomerOrders({ initialOrders, initialError = '', userId, initi
     if (!client) { setBusy(null); return }
     const { error: cancelError } = await client.rpc('customer_cancel_order', { p_order_id: orderId })
     if (cancelError) setError(cancelError.message)
-    else await load()
+    else router.refresh()
     setBusy(null)
   }
 
-  async function cancelReturn(refundId:number) { setBusy(refundId); const client=createSupabaseBrowserClient(); if(!client){setBusy(null);return} const {error}=await client.rpc('cancel_return_request',{p_refund_id:refundId}); if(error)setError(error.message); else await load(); setBusy(null) }
+  async function cancelReturn(refundId:number) { setBusy(refundId); const client=createSupabaseBrowserClient(); if(!client){setBusy(null);return} const {error}=await client.rpc('cancel_return_request',{p_refund_id:refundId}); if(error)setError(error.message); else router.refresh(); setBusy(null) }
 
   const currentOrders = groupedOrders[activeTab]
   return <section className="customer-orders">
@@ -92,9 +86,9 @@ export function CustomerOrders({ initialOrders, initialError = '', userId, initi
       <button className={activeTab === 'shipping' ? 'active' : ''} role="tab" aria-selected={activeTab === 'shipping'} onClick={() => setActiveTab('shipping')}><Truck size={16} />On shipping <span>{groupedOrders.shipping.length}</span></button>
       <button className={activeTab === 'arrived' ? 'active' : ''} role="tab" aria-selected={activeTab === 'arrived'} onClick={() => setActiveTab('arrived')}><CheckCircle2 size={16} />Arrived <span>{groupedOrders.arrived.length}</span></button>
       <button className={activeTab === 'cancelled' ? 'active' : ''} role="tab" aria-selected={activeTab === 'cancelled'} onClick={() => setActiveTab('cancelled')}><Package size={16} />Cancelled <span>{groupedOrders.cancelled.length}</span></button>
-    </div><button className="secondary-button orders-refresh" onClick={() => void load()}>Refresh</button></div>
-    {error && <p className="low-stock" role="alert">{error}<button type="button" className="link-button" onClick={()=>void load()}>Retry</button></p>}
-    {initialLoading ? <div className="customer-order-list" aria-label="Loading orders" aria-busy="true">{Array.from({length:2},(_,index)=><article className="customer-order-skeleton" key={index}><i/><i/><i/></article>)}</div> : currentOrders.length ? <div className="customer-order-list">{currentOrders.map(order => {
+    </div><button className="secondary-button orders-refresh" onClick={() => router.refresh()}>Refresh</button></div>
+    {error && <p className="low-stock" role="alert">{error}<button type="button" className="link-button" onClick={()=>router.refresh()}>Retry</button></p>}
+    {currentOrders.length ? <div className="customer-order-list">{currentOrders.map(order => {
       const firstItem = order.order_items?.[0]
       const product = one(firstItem?.products)
       const firstItemReturnable = one(firstItem?.products)?.is_returnable ?? true
@@ -139,6 +133,6 @@ export function CustomerOrders({ initialOrders, initialError = '', userId, initi
       </article>
     })}</div> : <section className="orders-empty"><span>{activeTab === 'shipping' ? <Truck size={24} /> : activeTab === 'arrived' ? <CheckCircle2 size={24} /> : <Package size={24} />}</span><h3>{activeTab === 'shipping' ? 'No orders on the way' : activeTab === 'arrived' ? 'No delivered orders yet' : 'No cancelled orders'}</h3><p>{orders.length ? 'Orders in this section will show up here.' : 'Your orders will appear here after checkout.'}</p>{!orders.length && <Link href="/" className="primary-button">Browse products</Link>}</section>}
     {toast && <div className="refund-toast" role="status" aria-live="polite">{toast}</div>}
-    {refundOrder && <RefundRequestDialog orderId={refundOrder.id} addressId={refundOrder.address_id} pickupAddress={[one(refundOrder.addresses)?.label,one(refundOrder.addresses)?.line1,one(refundOrder.addresses)?.city,one(refundOrder.addresses)?.postal_code].filter(Boolean).join(', ')} pricingAvailable={refundOrder.refund_pricing_complete} items={(refundOrder.order_items ?? []).map(item => ({id:item.id,quantity:item.quantity,unit_price:item.unit_price,is_returnable:one(item.products)?.is_returnable??true,gst_amount:item.gst_amount,discount_amount:item.discount_amount,products:one(item.products)}))} feeRefund={Math.max(0,Number(refundOrder.total)-(refundOrder.order_items??[]).reduce((sum,item)=>sum+Number(item.unit_price)*item.quantity+Number(item.gst_amount)-Number(item.discount_amount),0)-(refundOrder.refunds??[]).filter(refund=>refund.status!=='rejected').reduce((sum,refund)=>sum+Number(refund.fee_amount??0),0))} prepaid={(refundOrder.payments ?? []).some(payment=>!['cod','cash on delivery'].includes(payment.method.toLowerCase()))} onClose={()=>setRefundOrder(null)} onSubmitted={()=>{setRefundOrder(null);setToast('Refund request submitted.');void load()}} />}
+    {refundOrder && <RefundRequestDialog orderId={refundOrder.id} addressId={refundOrder.address_id} pickupAddress={[one(refundOrder.addresses)?.label,one(refundOrder.addresses)?.line1,one(refundOrder.addresses)?.city,one(refundOrder.addresses)?.postal_code].filter(Boolean).join(', ')} pricingAvailable={refundOrder.refund_pricing_complete} items={(refundOrder.order_items ?? []).map(item => ({id:item.id,quantity:item.quantity,unit_price:item.unit_price,is_returnable:one(item.products)?.is_returnable??true,gst_amount:item.gst_amount,discount_amount:item.discount_amount,products:one(item.products)}))} feeRefund={Math.max(0,Number(refundOrder.total)-(refundOrder.order_items??[]).reduce((sum,item)=>sum+Number(item.unit_price)*item.quantity+Number(item.gst_amount)-Number(item.discount_amount),0)-(refundOrder.refunds??[]).filter(refund=>refund.status!=='rejected').reduce((sum,refund)=>sum+Number(refund.fee_amount??0),0))} prepaid={(refundOrder.payments ?? []).some(payment=>!['cod','cash on delivery'].includes(payment.method.toLowerCase()))} onClose={()=>setRefundOrder(null)} onSubmitted={()=>{setRefundOrder(null);setToast('Refund request submitted.');router.refresh()}} />}
   </section>
 }
