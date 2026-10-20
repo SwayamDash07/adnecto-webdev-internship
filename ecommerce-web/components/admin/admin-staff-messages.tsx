@@ -5,9 +5,9 @@ import { AlertTriangle, Bell, Check, CheckCheck, ClipboardCheck, MailOpen, Megap
 import { AdminShell } from './admin-shell'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
-type StaffMessage = { message_id:number; recipient_row_id:number; sender_id:string; sender_name:string; message_type:'alert'|'issue'|'announcement'; title:string; body:string; created_at:string; read_at:string|null; acknowledged_at:string|null; done_at:string|null; done_note:string|null }
-type SentMessage = { message_id:number; message_type:'alert'|'issue'|'announcement'; title:string; body:string; created_at:string; recipient_count:number; read_count:number; done_count:number; acknowledged_count:number; audience_mode:string|null; audience_roles:string[]|null; audience_label:string|null }
-type Target = { user_id:string; full_name:string; role_name:string }
+export type StaffMessage = { message_id:number; recipient_row_id:number; sender_id:string; sender_name:string; message_type:'alert'|'issue'|'announcement'; title:string; body:string; created_at:string; read_at:string|null; acknowledged_at:string|null; done_at:string|null; done_note:string|null }
+export type SentMessage = { message_id:number; message_type:'alert'|'issue'|'announcement'; title:string; body:string; created_at:string; recipient_count:number; read_count:number; done_count:number; acknowledged_count:number; audience_mode:string|null; audience_roles:string[]|null; audience_label:string|null }
+export type Target = { user_id:string; full_name:string; role_name:string }
 type Recipient = { recipient_id:string; full_name:string; role_name:string; read_at:string|null; done_at:string|null; acknowledged_at:string|null; done_note:string|null }
 type RpcFailure = { message?:string; code?:string; hint?:string; details?:string }
 type Filter = 'all'|'unread'|'alerts'|'todo'|'done'|'waiting'|'complete'
@@ -33,25 +33,25 @@ function logRpcError(area:string,error:unknown){
   console.error(`[Messages] ${area} failed`,{message:value.message??String(error),code:value.code,hint:value.hint,details:value.details})
 }
 
-export function AdminStaffMessages(){
+export function AdminStaffMessages({ initialRole, initialInbox, initialSent, initialTargets, initialErrors }: { initialRole: string; initialInbox: StaffMessage[]; initialSent: SentMessage[]; initialTargets: Target[]; initialErrors: { inbox: string; sent: string; targets: string } }){
   const client=useMemo(()=>createSupabaseBrowserClient(),[])
-  const [role,setRole]=useState('')
-  const [inbox,setInbox]=useState<StaffMessage[]>([])
-  const [sent,setSent]=useState<SentMessage[]>([])
-  const [targets,setTargets]=useState<Target[]>([])
+  const [role]=useState(initialRole)
+  const [inbox,setInbox]=useState<StaffMessage[]>(initialInbox)
+  const [sent,setSent]=useState<SentMessage[]>(initialSent)
+  const [targets,setTargets]=useState<Target[]>(initialTargets)
   const [recipients,setRecipients]=useState<Recipient[]>([])
-  const [selected,setSelected]=useState<StaffMessage|null>(null)
-  const [sentSelected,setSentSelected]=useState<SentMessage|null>(null)
-  const [mode,setMode]=useState<'inbox'|'sent'>('sent')
+  const [selected,setSelected]=useState<StaffMessage|null>(initialInbox[0] ?? null)
+  const [sentSelected,setSentSelected]=useState<SentMessage|null>(initialSent[0] ?? null)
+  const [mode,setMode]=useState<'inbox'|'sent'>(initialRole==='super_admin'?'sent':'inbox')
   const [inboxFilter,setInboxFilter]=useState<Filter>('all')
   const [sentFilter,setSentFilter]=useState<Filter>('all')
-  const [inboxLoading,setInboxLoading]=useState(true)
-  const [sentLoading,setSentLoading]=useState(true)
-  const [inboxError,setInboxError]=useState('')
-  const [sentError,setSentError]=useState('')
+  const [inboxLoading,setInboxLoading]=useState(false)
+  const [sentLoading,setSentLoading]=useState(false)
+  const [inboxError,setInboxError]=useState(initialErrors.inbox)
+  const [sentError,setSentError]=useState(initialErrors.sent)
   const [detailError,setDetailError]=useState('')
-  const [composeError,setComposeError]=useState('')
-  const [composeErrorKind,setComposeErrorKind]=useState<'targets'|'send'|''>('')
+  const [composeError,setComposeError]=useState(initialErrors.targets)
+  const [composeErrorKind,setComposeErrorKind]=useState<'targets'|'send'|''>(initialErrors.targets ? 'targets' : '')
   const [targetsLoading,setTargetsLoading]=useState(false)
   const [noteOpen,setNoteOpen]=useState(false)
   const [note,setNote]=useState('')
@@ -96,22 +96,6 @@ export function AdminStaffMessages(){
     try{const {data,error}=await client.rpc('admin_staff_message_recipients',{p_message_id:id});if(error){logRpcError('admin_staff_message_recipients',error);setDetailError(friendly.recipients)}else setRecipients((data??[]) as Recipient[])}
     catch(error){logRpcError('admin_staff_message_recipients',error);setDetailError(friendly.recipients)}
   },[client])
-
-  useEffect(()=>{
-    if(!client){setInboxLoading(false);setSentLoading(false);return}
-    let active=true
-    void (async()=>{
-      try{
-        const {data,error}=await client.rpc('get_my_admin_profile')
-        if(!active)return
-        if(error)logRpcError('get_my_admin_profile',error)
-        const currentRole=String(data?.[0]?.role_name??'');setRole(currentRole)
-        if(currentRole==='super_admin'){setMode('sent');await Promise.all([loadInbox(),loadSent()])}
-        else{setMode('inbox');setSentLoading(false);await loadInbox()}
-      }catch(error){if(active){logRpcError('get_my_admin_profile',error);setMode('inbox');setSentLoading(false);void loadInbox()}}
-    })()
-    return()=>{active=false}
-  },[client,loadInbox,loadSent])
 
   useEffect(()=>{
     if(!client)return
