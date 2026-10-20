@@ -9,6 +9,7 @@ import type { AdminOrder } from '@/types/admin-orders'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { formatDeliverySlot } from '@/lib/delivery-slot'
 import { useIstNow } from '@/hooks/use-ist-now'
+import { getOrderRefunds } from '@/app/admin/orders/actions'
 
 const statusLabel = (status: string) => status.replaceAll('_', ' ')
 const statusClass = (status: string) => `order-status-${status.replaceAll('_', '-')}`
@@ -64,7 +65,7 @@ export function OrderQueueTable({ loading, error, allOrders, visibleOrders, page
       setPendingChange(null)
     }
   }, [allOrders, error, pendingChange])
-  useEffect(()=>{if(!selectedOrder){setRefundRows([]);return}let active=true;const client=createSupabaseBrowserClient();if(!client)return;void client.from('refunds').select('id,amount,final_amount,type,pickup_slot,picked_up_at,received_at,item_condition,condition_note,status,reason,comment,decision_note,photo_paths,created_at,updated_at,decided_at,refund_items(quantity,amount,order_items(products(name))),refund_events(to_status,note,created_at)').eq('order_id',selectedOrder.order_id).order('created_at',{ascending:false}).then(({data,error})=>{if(!active)return;if(error)setRefundError(error.message);else{setRefundError('');setRefundRows((data??[]) as unknown as RefundRow[])}});return()=>{active=false}},[selectedOrder?.order_id])
+  useEffect(()=>{if(!selectedOrder){setRefundRows([]);return}let active=true;void getOrderRefunds(selectedOrder.order_id).then(({data,error})=>{if(!active)return;if(error)setRefundError(error);else{setRefundError('');setRefundRows(data as unknown as RefundRow[])}});return()=>{active=false}},[selectedOrder?.order_id])
   useEffect(() => {
     let active = true
     const client = createSupabaseBrowserClient()
@@ -79,7 +80,7 @@ export function OrderQueueTable({ loading, error, allOrders, visibleOrders, page
     return () => { active = false }
   }, [refundRows])
 
-  async function updateRefund(refundId:number,status:string,note?:string,extra:Record<string,unknown>={}){const client=createSupabaseBrowserClient();if(!client)return;setRefundBusy(refundId);setRefundError('');const {error}=await client.rpc('set_refund_status',{p_refund_id:refundId,p_status:status,p_note:note??null,...extra});if(error)setRefundError(error.message);else{const {data}=await client.from('refunds').select('id,amount,final_amount,type,pickup_slot,picked_up_at,received_at,item_condition,condition_note,status,reason,comment,decision_note,photo_paths,created_at,updated_at,decided_at,refund_items(quantity,amount,order_items(products(name))),refund_events(to_status,note,created_at)').eq('order_id',selectedOrder?.order_id).order('created_at',{ascending:false});setRefundRows((data??[]) as unknown as RefundRow[]);onRetry()}setRefundBusy(null);setRejectingRefund(null);setRejectNote('')}
+  async function updateRefund(refundId:number,status:string,note?:string,extra:Record<string,unknown>={}){const client=createSupabaseBrowserClient();if(!client)return;setRefundBusy(refundId);setRefundError('');const {error}=await client.rpc('set_refund_status',{p_refund_id:refundId,p_status:status,p_note:note??null,...extra});if(error)setRefundError(error.message);else{if(selectedOrder){const result=await getOrderRefunds(selectedOrder.order_id);if(result.error)setRefundError(result.error);else setRefundRows(result.data as unknown as RefundRow[])}onRetry()}setRefundBusy(null);setRejectingRefund(null);setRejectNote('')}
 
   async function changeStatus(order: AdminOrder, nextStatus: string) {
     setOpenMenu(null)
