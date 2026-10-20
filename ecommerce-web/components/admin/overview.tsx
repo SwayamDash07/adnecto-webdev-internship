@@ -12,7 +12,7 @@ import type { AdminDailySales, AdminSummary } from '@/lib/admin-overview-stats'
 
 export function Overview({ role, initialOrders, initialLateOrders, initialLowStock, initialError, initialSummary, initialYesterday }: { role: string | null; initialOrders: import('@/types/admin-overview').Recent[]; initialLateOrders: import('@/types/admin-overview').LateOrder[]; initialLowStock: import('@/types/admin-overview').LowStock[]; initialError: string; initialSummary: AdminSummary | null; initialYesterday: AdminDailySales | null }) {
   const pathname = usePathname()
-  const { orders, lateOrders, lowStock, loading, error, reload } = useAdminOverview(role, { initialOrders, initialLateOrders, initialLowStock, initialError })
+  const { orders, lateOrders, lowStock, loading, error, reload } = useAdminOverview({ initialOrders, initialLateOrders, initialLowStock, initialError })
   const base = pathname.replace(/\/$/, '')
   const ordersHref = `${base}/orders`
   const inventoryHref = `${base}/inventory?stock=low`
