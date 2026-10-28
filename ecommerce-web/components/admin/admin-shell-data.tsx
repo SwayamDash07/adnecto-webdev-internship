@@ -7,6 +7,7 @@ import type { AdminNotification } from './admin-notifications-bell'
 export type AdminShellData = {
   profile: AdminProfile
   openComplaints: number
+  openRefunds: number
   unreadMessages: number
   notifications: AdminNotification[]
   unreadNotifications: number

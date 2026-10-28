@@ -3,6 +3,7 @@ export const PERMISSIONS = [
   'customers:view', 'coupons:manage', 'inventory:view', 'inventory:adjust', 'purchase_orders:manage',
   'delivery:manage', 'picker:use', 'reports:view', 'revenue:view', 'complaints:raise', 'complaints:manage',
   'team:manage', 'notifications:view', 'notifications:send', 'messages:send',
+  'refunds:view', 'refunds:decide', 'refunds:receive', 'refunds:pay', 'refunds:pickup',
 ] as const
 export type Permission = typeof PERMISSIONS[number]
 export type Role = 'super_admin' | 'admin' | 'store_manager' | 'picker' | 'customer_support' | 'delivery_boy'
@@ -14,11 +15,11 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   store_manager: [
     'orders:view', 'orders:update_status', 'products:view', 'products:edit', 'inventory:view', 'inventory:adjust',
     'purchase_orders:manage', 'delivery:manage', 'picker:use', 'reports:view',
-    'complaints:manage', 'notifications:view',
+    'complaints:manage', 'notifications:view', 'refunds:view', 'refunds:decide', 'refunds:receive', 'refunds:pay',
   ],
   picker: ['picker:use', 'orders:view', 'orders:update_status', 'notifications:view'],
-  customer_support: ['complaints:manage', 'notifications:view'],
-  delivery_boy: ['orders:view', 'delivery:manage', 'notifications:view'],
+  customer_support: ['complaints:manage', 'notifications:view', 'refunds:view', 'refunds:decide'],
+  delivery_boy: ['orders:view', 'delivery:manage', 'notifications:view', 'refunds:pickup'],
 }
 
 export function can(role: string | null | undefined, permission: Permission): boolean {
@@ -53,6 +54,7 @@ export function permissionForPath(pathname: string): Permission | null | false {
   if (path === '/products/new' || path.startsWith('/products/new/')) return 'products:create'
   if (path.startsWith('/products')) return 'products:view'
   if (path.startsWith('/orders')) return 'orders:view'
+  if (path.startsWith('/refunds')) return 'refunds:view'
   if (path.startsWith('/customers')) return 'customers:view'
   if (path.startsWith('/inventory/purchases') || path.startsWith('/purchase-orders')) return 'purchase_orders:manage'
   if (path.startsWith('/inventory')) return 'inventory:view'
