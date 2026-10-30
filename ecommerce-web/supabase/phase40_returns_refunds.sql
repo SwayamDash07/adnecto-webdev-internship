@@ -143,6 +143,33 @@ end $$;
 revoke all on function public.calculate_refund_line_amount(bigint,integer) from public,anon;
 grant execute on function public.calculate_refund_line_amount(bigint,integer) to authenticated;
 
+create or replace function public.preview_refund_request(p_order_id bigint default null,p_reason text default null,p_items jsonb default '[]',p_type text default 'return_and_refund')
+returns table(items_amount numeric,fee_amount numeric,total_amount numeric)
+language plpgsql stable security definer set search_path=public as $$
+declare o public.orders%rowtype; entry jsonb; item_id bigint; qty integer; item_total numeric:=0; fee_total numeric:=0; paid numeric;
+begin
+ if auth.uid() is null then raise exception 'AUTH_REQUIRED'; end if;
+ select * into o from public.orders where id=p_order_id and user_id=auth.uid();
+ if not found then raise exception 'ORDER_NOT_FOUND'; end if;
+ if p_type not in ('return_and_refund','refund_only') then raise exception 'INVALID_REFUND_TYPE'; end if;
+ if p_type='refund_only' and p_reason not in ('Wrong item','Damaged or defective','Not as described') then raise exception 'REFUND_ONLY_REASON_REQUIRED'; end if;
+ if coalesce(jsonb_typeof(p_items),'')<>'array' or jsonb_array_length(coalesce(p_items,'[]'))=0 then raise exception 'SELECT_ITEMS'; end if;
+ for entry in select * from jsonb_array_elements(p_items) loop
+  item_id:=(entry->>'order_item_id')::bigint; qty:=(entry->>'quantity')::integer;
+  if qty is null or qty<1 then raise exception 'INVALID_QUANTITY'; end if;
+  if not exists(select 1 from public.get_return_eligibility(p_order_id) e where e.order_item_id=item_id and e.refundable_quantity>=qty and ((p_type='return_and_refund' and e.return_possible) or (p_type='refund_only' and e.refund_only_possible))) then raise exception 'ITEM_NOT_ELIGIBLE'; end if;
+  item_total:=item_total+public.calculate_refund_line_amount(item_id,qty);
+ end loop;
+ select amount into paid from public.payments where order_id=p_order_id order by id desc limit 1;
+ if p_reason in ('Wrong item','Damaged or defective','Not as described') and not exists(select 1 from public.refunds where order_id=p_order_id and status not in ('rejected','cancelled')) and
+   (select coalesce(sum((j->>'quantity')::integer),0) from jsonb_array_elements(p_items) j)=(select coalesce(sum(oi.quantity),0) from public.order_items oi where oi.order_id=p_order_id) then
+   select greatest(0,coalesce(paid,o.total)-(select coalesce(sum(oi.unit_price*oi.quantity+oi.gst_amount-oi.discount_amount),0) from public.order_items oi where oi.order_id=p_order_id)) into fee_total;
+ end if;
+ return query select item_total,fee_total,item_total+fee_total;
+end $$;
+revoke all on function public.preview_refund_request(bigint,text,jsonb,text) from public,anon;
+grant execute on function public.preview_refund_request(bigint,text,jsonb,text) to authenticated;
+
 -- Second-line defence for direct inserts: order lock, paid-amount cap, customer open request limit and single open line.
 create or replace function public.guard_refund_insert()
 returns trigger language plpgsql security definer set search_path=public as $$
