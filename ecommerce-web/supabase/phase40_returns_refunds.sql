@@ -59,6 +59,24 @@ $$;
 revoke all on function public.current_role_has_permission(text) from public,anon;
 grant execute on function public.current_role_has_permission(text) to authenticated;
 
+-- A customer cancellation RPC already checks ownership, locks the order and only permits
+-- placed/accepted orders. The status trigger must allow that same guarded transition.
+create or replace function public.enforce_order_status_permission()
+returns trigger language plpgsql security definer set search_path=public as $$
+declare role_name text:=public.current_role();
+begin
+ if new.status is not distinct from old.status or auth.uid() is null then return new; end if;
+ if old.user_id=auth.uid() and old.status in ('placed','accepted') and new.status='cancelled' then return new; end if;
+ if role_name='picker' then
+  if old.status<>'picking' or new.status<>'packed' then raise exception 'FORBIDDEN_STATUS_TRANSITION' using errcode='42501'; end if;
+ elsif role_name in ('store_manager','super_admin','admin') then
+  if not ((old.status='placed' and new.status in ('accepted','cancelled')) or (old.status='accepted' and new.status in ('picking','cancelled')) or (old.status='picking' and new.status='packed') or (old.status='packed' and new.status='out_for_delivery') or (old.status='out_for_delivery' and new.status='delivered') or (old.status='delivered' and new.status='returned') or (new.status='refunded' and old.status in ('cancelled','returned','delivered'))) then raise exception 'INVALID_STATUS_TRANSITION' using errcode='22023'; end if;
+ else
+  raise exception 'FORBIDDEN_STATUS_TRANSITION' using errcode='42501';
+ end if;
+ return new;
+end $$;
+
 drop policy if exists "customers read own refunds" on public.refunds;
 create policy "customers read own refunds" on public.refunds for select to authenticated using(
  exists(select 1 from public.orders o where o.id=order_id and o.user_id=auth.uid())
