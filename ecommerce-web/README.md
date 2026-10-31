@@ -1,26 +1,30 @@
 # Cartly Hypermarket
 
-Cartly is a Next.js storefront and operations console backed by Supabase. The repository contains customer catalog/cart/checkout flows, Razorpay payment routes, admin CRUD, inventory reservations, fulfilment queues, reports, realtime order notifications, and the Edge Function worker.
+A full-stack online marketplace built as my final project during my internship at Adnecto Technologies. Cartly brings together customer shopping and store operations in one application.
 
-## Local setup
+## Live links
 
-1. Install Node.js 20+ and run `npm ci`.
-2. Copy `.env.local` to your local environment and set the public Supabase URL/key. Keep service-role and Razorpay secrets server-only.
-3. Read [the Supabase SQL guide](supabase/README.md) before applying database scripts. The repository contains historical migrations, setup scripts, seeds, and maintenance SQL; do not run every SQL file against an existing project.
-4. Run `npm run dev`.
+- [Customer store](https://cartly-mu-livid.vercel.app/)
+- [Admin sign-in](https://cartly-mu-livid.vercel.app/auth/admin-sign-in)
 
-Required production secrets are `SUPABASE_SERVICE_ROLE_KEY`, `RAZORPAY_KEY_SECRET`, and `RAZORPAY_WEBHOOK_SECRET`. The browser only receives `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `NEXT_PUBLIC_RAZORPAY_KEY_ID`. Customer and admin authentication use Supabase directly and do not require a CAPTCHA provider.
+## Features
 
-## Edge Function worker
+- Browse products, search, and view product details.
+- Manage a cart, saved addresses, and customer account.
+- Complete checkout with Razorpay test-mode payments.
+- Track orders and request eligible returns, refunds, or exchanges.
+- Manage products, inventory, orders, and delivery from the admin portal.
+- Process return and exchange pickups through the operations workflow.
 
-`supabase/functions/process-background-jobs/index.ts` claims pending rows from `background_jobs` and processes them with the service role. Deploy with `supabase functions deploy process-background-jobs --no-verify-jwt`, set the function secrets with `supabase secrets set`, and schedule an authenticated POST from Supabase Cron every minute. The worker is safe to retry because jobs are claimed and attempts are recorded.
+## Tech stack
 
-## Verification
+- Next.js and React
+- TypeScript
+- Supabase authentication, database, and storage
+- Razorpay test mode
 
-- `npm run typecheck`
-- `npm run test`
-- `npm run build`
+## Run locally
 
-The unit suite covers pricing/tax totals, inventory reservation decisions, payment input validation, and legal order transitions. Supabase RPC and browser checkout tests require a configured Supabase project plus seeded roles/products; Razorpay end-to-end capture additionally requires test credentials and webhook delivery.
-
-Deploy the Next.js app with the same server environment variables, run the migrations in the order above, deploy the Edge Function, configure Razorpay webhook URL/signing secret, and verify RLS with a customer and each staff role before accepting live traffic.
+```bash
+npm install
+npm run dev
