@@ -1,7 +1,6 @@
 'use server'
 
-import { headers } from 'next/headers'
-import { authSchema, verifyCaptcha } from '@/lib/security/server'
+import { authSchema } from '@/lib/security/server'
 import { getAdminProfile } from '@/lib/admin-auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { canAccessPath, roleHomePath } from '@/lib/permission-definitions'
@@ -11,7 +10,6 @@ export async function adminAuthAction(_previous: AuthActionState, formData: Form
   const parsed = authSchema.safeParse({
     email: formData.get('email'),
     password: formData.get('password'),
-    captchaToken: formData.get('captchaToken') || undefined,
   })
   if (!parsed.success) {
     const fieldErrors: AuthActionState['fieldErrors'] = {}
@@ -20,12 +18,6 @@ export async function adminAuthAction(_previous: AuthActionState, formData: Form
       if ((field === 'email' || field === 'password') && !fieldErrors[field]) fieldErrors[field] = issue.message
     }
     return { fieldErrors, formError: 'Please enter a valid email and password.' }
-  }
-
-  const requestHeaders = await headers()
-  const ip = requestHeaders.get('x-forwarded-for')?.split(',')[0]?.trim()
-  if (!(await verifyCaptcha(parsed.data.captchaToken, ip))) {
-    return { formError: 'We could not verify this sign-in. Please try again.' }
   }
 
   const supabase = await createSupabaseServerClient()

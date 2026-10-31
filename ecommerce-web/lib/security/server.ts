@@ -21,23 +21,6 @@ export function limitedResponse(retryAfter: number) {
   return NextResponse.json({ error: 'RATE_LIMITED', retryAfter }, { status: 429, headers: { 'Retry-After': String(retryAfter) } })
 }
 
-export async function verifyCaptcha(token: unknown, ip?: string) {
-  const secret = process.env.TURNSTILE_SECRET_KEY
-  if (!secret) return process.env.NODE_ENV !== 'production'
-  if (typeof token !== 'string' || !token) return false
-  const body = new FormData()
-  body.append('secret', secret)
-  body.append('response', token)
-  if (ip) body.append('remoteip', ip)
-  try {
-    const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { method: 'POST', body, cache: 'no-store' })
-    const result = await response.json() as { success?: boolean }
-    return response.ok && result.success === true
-  } catch {
-    return false
-  }
-}
-
 export async function parseJson<T extends z.ZodTypeAny>(request: Request, schema: T) {
   try {
     return { data: schema.parse(await request.json()) as z.infer<T>, error: null }
@@ -46,4 +29,4 @@ export async function parseJson<T extends z.ZodTypeAny>(request: Request, schema
   }
 }
 
-export const authSchema = z.object({ email: z.string().trim().email().max(254), password: z.string().min(8).max(128), captchaToken: z.string().optional() })
+export const authSchema = z.object({ email: z.string().trim().email().max(254), password: z.string().min(8).max(128) })

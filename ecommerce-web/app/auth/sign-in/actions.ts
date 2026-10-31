@@ -1,7 +1,6 @@
 'use server'
 
-import { headers } from 'next/headers'
-import { authSchema, verifyCaptcha } from '@/lib/security/server'
+import { authSchema } from '@/lib/security/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { AuthActionState } from '@/lib/auth-action-state'
 
@@ -17,7 +16,6 @@ export async function customerAuthAction(_previous: AuthActionState, formData: F
   const parsed = authSchema.safeParse({
     email: formData.get('email'),
     password: formData.get('password'),
-    captchaToken: formData.get('captchaToken') || undefined,
   })
   if (!parsed.success) {
     const fieldErrors: AuthActionState['fieldErrors'] = {}
@@ -26,12 +24,6 @@ export async function customerAuthAction(_previous: AuthActionState, formData: F
       if ((field === 'email' || field === 'password') && !fieldErrors[field]) fieldErrors[field] = issue.message
     }
     return { fieldErrors, formError: 'Please check the highlighted fields.' }
-  }
-
-  const requestHeaders = await headers()
-  const ip = requestHeaders.get('x-forwarded-for')?.split(',')[0]?.trim()
-  if (!(await verifyCaptcha(parsed.data.captchaToken, ip))) {
-    return { formError: 'We could not verify this sign-in. Please try again.' }
   }
 
   const supabase = await createSupabaseServerClient()

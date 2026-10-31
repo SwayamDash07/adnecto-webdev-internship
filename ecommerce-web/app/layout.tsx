@@ -53,5 +53,5 @@ export const metadata: Metadata = {
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}<CartToast />{process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async />}</body></html>
+  return <html lang="en"><body>{children}<CartToast /></body></html>
 }

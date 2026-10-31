@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation'
 import { Logo } from '@/components/shared/logo'
 import { cartStore } from '@/lib/cart-store'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
-import { getCaptchaToken } from '@/lib/security/captcha'
 import { customerAuthAction } from '@/app/auth/sign-in/actions'
 import { initialAuthActionState } from '@/lib/auth-action-state'
 
@@ -22,8 +21,6 @@ export function CustomerAuthForm({ returnTo }: { returnTo: string }) {
   const [signup, setSignup] = useState(false)
   const [dismissed, setDismissed] = useState(false)
   const [googleError, setGoogleError] = useState('')
-  const captchaRef = useRef<HTMLInputElement>(null)
-  const submittingWithCaptcha = useRef(false)
   const emailRef = useRef<HTMLInputElement>(null)
   const passwordRef = useRef<HTMLInputElement>(null)
   const handledDestination = useRef<string | null>(null)
@@ -59,26 +56,9 @@ export function CustomerAuthForm({ returnTo }: { returnTo: string }) {
     }
   }
 
-  function prepareCaptcha(event: React.FormEvent<HTMLFormElement>) {
-    if (submittingWithCaptcha.current) {
-      submittingWithCaptcha.current = false
-      return
-    }
-    event.preventDefault()
-    setDismissed(false)
-    setGoogleError('')
-    const form = event.currentTarget
-    void getCaptchaToken().then(token => {
-      if (captchaRef.current) captchaRef.current.value = token ?? ''
-      submittingWithCaptcha.current = true
-      form.requestSubmit()
-    })
-  }
-
-  return <main className="auth-shell"><section className="auth-card"><Logo /><h1>{signup ? 'Create your account' : 'Welcome back'}</h1><p>Sign in to keep your cart synced and continue to payment.</p><form action={formAction} onSubmit={prepareCaptcha} onChange={() => setDismissed(false)}>
+  return <main className="auth-shell"><section className="auth-card"><Logo /><h1>{signup ? 'Create your account' : 'Welcome back'}</h1><p>Sign in to keep your cart synced and continue to payment.</p><form action={formAction} onChange={() => setDismissed(false)}>
     <input type="hidden" name="returnTo" value={returnTo} />
     <input type="hidden" name="signup" value={signup ? 'true' : 'false'} />
-    <input ref={captchaRef} type="hidden" name="captchaToken" />
     <label>Email<input ref={emailRef} className="auth-input" name="email" type="email" autoComplete="email" placeholder="you@example.com" required aria-invalid={Boolean(state.fieldErrors?.email)} aria-describedby={state.fieldErrors?.email ? 'customer-email-error' : undefined} /></label>
     {state.fieldErrors?.email && <small id="customer-email-error" className="low-stock" role="alert">{state.fieldErrors.email}</small>}
     <label>Password<input ref={passwordRef} className="auth-input" name="password" type="password" autoComplete={signup ? 'new-password' : 'current-password'} placeholder="••••••••" required minLength={8} aria-invalid={Boolean(state.fieldErrors?.password)} aria-describedby={state.fieldErrors?.password ? 'customer-password-error' : undefined} /></label>
