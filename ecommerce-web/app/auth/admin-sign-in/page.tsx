@@ -22,7 +22,6 @@ export default async function AdminSignInPage({ searchParams }: AdminSignInPageP
   }
 
   return <AdminAuthForm
-    portalBase={portalBase}
     returnTo={candidate}
     initialError={error === 'not_admin' ? 'This account does not have administrator access.' : undefined}
   />

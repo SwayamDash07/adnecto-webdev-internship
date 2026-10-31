@@ -13,7 +13,7 @@ function SubmitButton() {
   return <button className="primary-button" type="submit" disabled={pending}>{pending ? 'Signing in…' : 'Sign in securely'}</button>
 }
 
-export function AdminAuthForm({ portalBase, returnTo, initialError }: { portalBase: string; returnTo: string; initialError?: string }) {
+export function AdminAuthForm({ returnTo, initialError }: { returnTo: string; initialError?: string }) {
   const router = useRouter()
   const [state, formAction] = useActionState(adminAuthAction, initialAuthActionState)
   const [pageError, setPageError] = useState(initialError)
@@ -39,5 +39,5 @@ export function AdminAuthForm({ portalBase, returnTo, initialError }: { portalBa
     <label>Password<input ref={passwordRef} className="auth-input" name="password" type="password" autoComplete="current-password" required minLength={8} aria-invalid={Boolean(state.fieldErrors?.password)} aria-describedby={state.fieldErrors?.password ? 'admin-password-error' : undefined} /></label>
     {state.fieldErrors?.password && <small id="admin-password-error" className="low-stock" role="alert">{state.fieldErrors.password}</small>}
     <SubmitButton />
-  </form>{(state.formError || pageError) && <p className="low-stock" role="alert">{state.formError || pageError}</p>}<Link href={portalBase} className="auth-back">Back to admin portal</Link><Link href="/" className="auth-back">Go to shopping</Link></section></main>
+  </form>{(state.formError || pageError) && <p className="low-stock" role="alert">{state.formError || pageError}</p>}<Link href="/" className="auth-back">Go to shopping</Link></section></main>
 }
