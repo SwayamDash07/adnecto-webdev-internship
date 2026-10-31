@@ -1,6 +1,14 @@
 import type { NextConfig } from 'next'
 import bundleAnalyzer from '@next/bundle-analyzer'
 
+const supabaseImageHostname = (() => {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').hostname
+  } catch {
+    return null
+  }
+})()
+
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
 })
@@ -31,6 +39,7 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'www.ikea.is' },
       { protocol: 'https', hostname: 'encrypted-tbn0.gstatic.com' },
       { protocol: 'https', hostname: 'assets.adidas.com' },
+      ...(supabaseImageHostname ? [{ protocol: 'https' as const, hostname: supabaseImageHostname, pathname: '/storage/v1/object/public/product-media/**' }] : []),
     ],
   },
   async headers() {

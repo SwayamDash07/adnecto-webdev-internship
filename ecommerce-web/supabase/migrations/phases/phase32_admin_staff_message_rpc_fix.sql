@@ -2,7 +2,7 @@
 -- Run after phase31_admin_staff_messages.sql.
 do $$ begin
  if to_regprocedure('public.staff_list_admin_messages()') is null then
-   raise exception 'Apply supabase/phase31_admin_staff_messages.sql before this migration.';
+   raise exception 'Apply supabase/migrations/phases/phase31_admin_staff_messages.sql before this migration.';
  end if;
 end $$;
 

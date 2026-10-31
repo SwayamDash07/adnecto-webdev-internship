@@ -17,8 +17,10 @@ export function Overview({ role, initialOrders, initialLateOrders, initialLowSto
   const ordersHref = `${base}/orders`
   const inventoryHref = `${base}/inventory?stock=low`
   const deliveryHref = `${base}/delivery`
+  const refundsHref = `${base}/refunds`
   return <div className="admin-overview overview-today-page">
     <Stats role={role} orders={orders} initialSummary={initialSummary} initialYesterday={initialYesterday} />
+    {can(role, 'refunds:view') && Number(initialSummary?.returns_to_review ?? 0) > 0 && <Link className="overview-returns-card" href={refundsHref}><span><strong>Returns to review</strong><small>{initialSummary?.returns_to_review} request{initialSummary?.returns_to_review === 1 ? '' : 's'} waiting for a decision</small></span><ArrowRight size={17} /></Link>}
     {can(role, 'reports:view') && <div className="overview-report-link"><span>Need the longer-term picture?</span><Link href={`${base}/reports`}>View full report <ArrowRight size={14} /></Link></div>}
     {error && <div className="admin-alert" role="alert"><CircleAlert size={17} />{error}</div>}
     <div className="overview-action-grid">

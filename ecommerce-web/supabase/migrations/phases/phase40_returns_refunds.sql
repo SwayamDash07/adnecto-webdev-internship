@@ -2,6 +2,10 @@
 -- This replaces the unapplied phase39 draft; RPC names already exist in phase21/22.
 begin;
 
+-- The phase22 seed used a fixed product ID to disable returns. AirPods are
+-- returnable; repair the catalog record by name because IDs differ per project.
+update public.products set is_returnable=true where lower(name) like '%airpod%' and is_returnable is distinct from true;
+
 create table if not exists public.returns_settings (
   id boolean primary key default true check (id),
   return_window_days integer not null check (return_window_days > 0),
@@ -144,9 +148,9 @@ revoke all on function public.calculate_refund_line_amount(bigint,integer) from 
 grant execute on function public.calculate_refund_line_amount(bigint,integer) to authenticated;
 
 create or replace function public.preview_refund_request(p_order_id bigint default null,p_reason text default null,p_items jsonb default '[]',p_type text default 'return_and_refund')
-returns table(items_amount numeric,fee_amount numeric,total_amount numeric)
+returns table(items_subtotal numeric,coupon_discount numeric,gst_amount numeric,fee_amount numeric,total_amount numeric)
 language plpgsql stable security definer set search_path=public as $$
-declare o public.orders%rowtype; entry jsonb; item_id bigint; qty integer; item_total numeric:=0; fee_total numeric:=0; paid numeric;
+declare o public.orders%rowtype; li public.order_items%rowtype; entry jsonb; item_id bigint; qty integer; item_total numeric:=0; subtotal_total numeric:=0; discount_total numeric:=0; gst_total numeric:=0; fee_total numeric:=0; paid numeric; previous_qty bigint; cents bigint; base_cents bigint; remainder_cents bigint;
 begin
  if auth.uid() is null then raise exception 'AUTH_REQUIRED'; end if;
  select * into o from public.orders where id=p_order_id and user_id=auth.uid();
@@ -158,14 +162,21 @@ begin
   item_id:=(entry->>'order_item_id')::bigint; qty:=(entry->>'quantity')::integer;
   if qty is null or qty<1 then raise exception 'INVALID_QUANTITY'; end if;
   if not exists(select 1 from public.get_return_eligibility(p_order_id) e where e.order_item_id=item_id and e.refundable_quantity>=qty and ((p_type='return_and_refund' and e.return_possible) or (p_type='refund_only' and e.refund_only_possible))) then raise exception 'ITEM_NOT_ELIGIBLE'; end if;
+  select * into li from public.order_items where id=item_id;
+  select coalesce(sum(ri.quantity),0) into previous_qty from public.refund_items ri join public.refunds rf on rf.id=ri.refund_id where ri.order_item_id=item_id and rf.status not in ('rejected','cancelled');
   item_total:=item_total+public.calculate_refund_line_amount(item_id,qty);
+  subtotal_total:=subtotal_total+li.unit_price*qty;
+  cents:=round(li.discount_amount*100)::bigint; base_cents:=floor(cents::numeric/li.quantity)::bigint; remainder_cents:=cents-base_cents*li.quantity;
+  discount_total:=discount_total+(base_cents*qty+greatest(0,least(qty,remainder_cents-previous_qty)))/100.0;
+  cents:=round(li.gst_amount*100)::bigint; base_cents:=floor(cents::numeric/li.quantity)::bigint; remainder_cents:=cents-base_cents*li.quantity;
+  gst_total:=gst_total+(base_cents*qty+greatest(0,least(qty,remainder_cents-previous_qty)))/100.0;
  end loop;
  select amount into paid from public.payments where order_id=p_order_id order by id desc limit 1;
  if p_reason in ('Wrong item','Damaged or defective','Not as described') and not exists(select 1 from public.refunds where order_id=p_order_id and status not in ('rejected','cancelled')) and
    (select coalesce(sum((j->>'quantity')::integer),0) from jsonb_array_elements(p_items) j)=(select coalesce(sum(oi.quantity),0) from public.order_items oi where oi.order_id=p_order_id) then
    select greatest(0,coalesce(paid,o.total)-(select coalesce(sum(oi.unit_price*oi.quantity+oi.gst_amount-oi.discount_amount),0) from public.order_items oi where oi.order_id=p_order_id)) into fee_total;
  end if;
- return query select item_total,fee_total,item_total+fee_total;
+ return query select subtotal_total,discount_total,gst_total,fee_total,item_total+fee_total;
 end $$;
 revoke all on function public.preview_refund_request(bigint,text,jsonb,text) from public,anon;
 grant execute on function public.preview_refund_request(bigint,text,jsonb,text) to authenticated;
@@ -301,6 +312,7 @@ revoke all on function public.reschedule_return_pickup(bigint,text) from public,
 grant execute on function public.reschedule_return_pickup(bigint,text) to authenticated;
 
 -- All progress is a single locked transition. No-op repeats create neither events nor notifications.
+drop function if exists public.set_refund_status(bigint,text,text,text,text,text,numeric,text,boolean,text);
 drop function if exists public.set_refund_status(bigint,text,text,text,text,text,numeric,text,boolean);
 drop function if exists public.set_refund_status(bigint,text,text,text,text,text,numeric,text);
 drop function if exists public.set_refund_status(bigint,text,text);
@@ -427,18 +439,51 @@ drop trigger if exists prepaid_cancel_refund on public.orders;
 create trigger prepaid_cancel_refund after update of status on public.orders for each row execute function public.auto_refund_prepaid_cancellation();
 
 -- Shared reporting definition: paid completed orders less issued refunds; cancelled orders are excluded.
-create or replace function public.net_revenue(p_from date default current_date-29,p_to date default current_date)
-returns numeric language plpgsql stable security definer set search_path=public as $$
+create or replace function public.net_revenue_daily(p_from date default current_date-29,p_to date default current_date)
+returns table(day date,orders bigint,revenue numeric)
+language plpgsql stable security definer set search_path=public as $$
 begin
  if not (public.current_role_has_permission('reports:view') or public.current_role_has_permission('revenue:view')) then raise exception 'FORBIDDEN' using errcode='42501'; end if;
- return (select coalesce(sum(greatest(0,coalesce(p.amount,o.total)-coalesce((select sum(coalesce(r.final_amount,r.amount)) from public.refunds r where r.order_id=o.id and r.status='refunded'),0))),0)
- from public.orders o left join lateral (select amount from public.payments where order_id=o.id order by id desc limit 1) p on true
- where o.created_at::date between p_from and p_to and o.status<>'cancelled'
+ return query
+ select (o.created_at at time zone 'Asia/Kolkata')::date,count(*)::bigint,
+  coalesce(sum(greatest(0,coalesce(p.amount,o.total)-coalesce((select sum(coalesce(r.final_amount,r.amount)) from public.refunds r where r.order_id=o.id and r.status='refunded'),0))),0)::numeric
+ from public.orders o left join lateral (select amount,method,status from public.payments where order_id=o.id order by id desc limit 1) p on true
+ where (o.created_at at time zone 'Asia/Kolkata')::date between p_from and p_to and o.status<>'cancelled'
    and (lower(coalesce(p.method,'')) in ('prepaid','razorpay') and lower(coalesce(p.status,'')) in ('captured','paid','succeeded','completed')
-     or lower(coalesce(p.method,'')) in ('cod','cash on delivery') and o.status in ('delivered','returned','refunded')));
+     or lower(coalesce(p.method,'')) in ('cod','cash on delivery') and o.status in ('delivered','returned','refunded'))
+ group by 1 order by 1;
 end $$;
+revoke all on function public.net_revenue_daily(date,date) from public,anon;
+grant execute on function public.net_revenue_daily(date,date) to authenticated;
+
+create or replace function public.net_revenue(p_from date default current_date-29,p_to date default current_date)
+returns numeric language sql stable security definer set search_path=public as $$
+ select coalesce(sum(d.revenue),0)::numeric from public.net_revenue_daily(p_from,p_to) d
+$$;
 revoke all on function public.net_revenue(date,date) from public,anon;
 grant execute on function public.net_revenue(date,date) to authenticated;
+
+create or replace function public.admin_sales_report(p_from date default current_date-29,p_to date default current_date)
+returns table(day date,order_count bigint,revenue numeric)
+language plpgsql stable security definer set search_path=public as $$
+begin
+ if not public.current_role_has_permission('reports:view') then raise exception 'FORBIDDEN' using errcode='42501'; end if;
+ return query select d.day,d.orders,d.revenue from public.net_revenue_daily(p_from,p_to) d;
+end $$;
+revoke all on function public.admin_sales_report(date,date) from public,anon;
+grant execute on function public.admin_sales_report(date,date) to authenticated;
+
+create or replace view public.dashboard_daily_sales as
+select d.day,d.orders::integer as orders,d.revenue from public.net_revenue_daily((now() at time zone 'Asia/Kolkata')::date-364,(now() at time zone 'Asia/Kolkata')::date) d;
+
+create or replace view public.dashboard_summary as
+with daily as (
+ select * from public.net_revenue_daily((now() at time zone 'Asia/Kolkata')::date,(now() at time zone 'Asia/Kolkata')::date)
+)
+select coalesce((select sum(revenue) from daily),0)::numeric as today_sales,
+ coalesce((select sum(orders) from daily),0)::integer as today_orders,
+ (select count(*)::integer from public.orders where status in ('placed','accepted','picking','packed','out_for_delivery')) as pending_deliveries,
+ (select count(*)::integer from public.inventory where current_stock-reserved_stock<=reorder_level) as low_stock_items;
 
 drop function if exists public.refund_report(date,date);
 create function public.refund_report(p_from date default current_date-29,p_to date default current_date)
@@ -448,16 +493,18 @@ begin
  if not public.current_role_has_permission('reports:view') then raise exception 'FORBIDDEN' using errcode='42501'; end if;
  return query
  with reasons as (
-  select r.reason,count(*)::bigint requested_count,
-   count(*) filter(where r.status='refunded' and r.refunded_at::date between p_from and p_to)::bigint refunded_count,
-   coalesce(sum(coalesce(r.final_amount,r.amount)) filter(where r.status='refunded' and r.refunded_at::date between p_from and p_to),0)::numeric total_refund
-  from public.refunds r where r.created_at::date between p_from and p_to group by r.reason
+  select r.reason,
+   count(*) filter(where (r.created_at at time zone 'Asia/Kolkata')::date between p_from and p_to)::bigint requested_count,
+   count(*) filter(where r.status='refunded' and (r.refunded_at at time zone 'Asia/Kolkata')::date between p_from and p_to)::bigint refunded_count,
+   coalesce(sum(coalesce(r.final_amount,r.amount)) filter(where r.status='refunded' and (r.refunded_at at time zone 'Asia/Kolkata')::date between p_from and p_to),0)::numeric total_refund
+  from public.refunds r where (r.created_at at time zone 'Asia/Kolkata')::date between p_from and p_to or r.status='refunded' and (r.refunded_at at time zone 'Asia/Kolkata')::date between p_from and p_to group by r.reason
+ ), totals as (
+  select coalesce(sum(requested_count),0)::bigint request_count,
+   (select count(*)::bigint from public.orders o where o.delivered_at is not null and (o.delivered_at at time zone 'Asia/Kolkata')::date between p_from and p_to) delivered_count
+  from reasons
  )
- select rs.total_refund,rs.refunded_count,rs.reason,rs.requested_count,
-  (select count(*)::bigint from public.orders o where o.delivered_at::date between p_from and p_to),
-  (select coalesce(sum(requested_count),0)::bigint from reasons),
-  coalesce((select sum(requested_count)::numeric from reasons)/nullif((select count(*)::numeric from public.orders o where o.delivered_at::date between p_from and p_to),0),0)
- from reasons rs;
+ select coalesce(rs.total_refund,0),coalesce(rs.refunded_count,0),coalesce(rs.reason,'No requests'),coalesce(rs.requested_count,0),t.delivered_count,t.request_count,coalesce(t.request_count::numeric/nullif(t.delivered_count,0),0)
+ from totals t left join reasons rs on true;
 end
 $$;
 revoke all on function public.refund_report(date,date) from public,anon;

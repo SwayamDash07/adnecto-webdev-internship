@@ -13,7 +13,6 @@ const dateParts = (date: Date) => {
   const values = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date)
   return { year: Number(values.find(x => x.type === 'year')?.value), month: Number(values.find(x => x.type === 'month')?.value), day: Number(values.find(x => x.type === 'day')?.value) }
 }
-const dateKey = (value: { year: number; month: number; day: number }) => value.year * 10000 + value.month * 100 + value.day
 const dateLabel = (date: Date, withYear = false) => new Intl.DateTimeFormat('en-GB', { timeZone: zone, day: '2-digit', month: 'short', ...(withYear ? { year: 'numeric' as const } : {}) }).format(date)
 export const formatISTTime = (date: Date) => {
   const parts = new Intl.DateTimeFormat('en-IN', { timeZone: zone, hour: 'numeric', minute: '2-digit' }).formatToParts(date)
@@ -40,9 +39,10 @@ export function formatDeliverySlot(order: DeliverySlotOrder, now = new Date()): 
   const start = new Date(order.delivery_slot_start), end = new Date(order.delivery_slot_end)
   if (!Number.isFinite(start.valueOf()) || !Number.isFinite(end.valueOf())) return { display: pending ? order.delivery_slot ?? null : null, state: 'none', late: false }
   const delta = dayDifference(start, now)
-  const day = delta === 0 ? 'Today' : delta === 1 ? 'Tomorrow' : `${new Intl.DateTimeFormat('en-GB', { timeZone: zone, weekday: 'short' }).format(start)} ${dateLabel(start)}`
+  const weekdayAndDate = `${new Intl.DateTimeFormat('en-GB', { timeZone: zone, weekday: 'short' }).format(start)} ${dateLabel(start)}`
+  const day = delta === 0 ? 'Today' : delta === 1 ? `Tomorrow, ${weekdayAndDate}` : weekdayAndDate
   const window = `${formatISTTime(start)} - ${formatISTTime(end)}`
-  const label = `${day}, ${window}`
+  const label = delta === 0 && formatISTTime(end) === '8 PM' ? 'Today, by 8 PM' : `${day}, ${window}`
   const late = pending && end.getTime() <= now.getTime()
   return { display: late ? `Was due ${label}` : label, state: late ? 'late' : 'pending', late }
 }

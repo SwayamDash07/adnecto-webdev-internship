@@ -1,10 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
-import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { BarChart3, CalendarDays, Download, PackageSearch, RefreshCw, ShoppingBag, TrendingUp, TriangleAlert } from 'lucide-react'
+import { CalendarDays, Download, PackageSearch, RefreshCw } from 'lucide-react'
 import { AdminShell } from './admin-shell'
 import { money } from '@/lib/formatters'
 import { useRealtimeReload } from '@/lib/use-realtime-reload'
@@ -12,6 +11,7 @@ import { useRealtimeReload } from '@/lib/use-realtime-reload'
 export type SalesRow = { day: string; order_count: number; revenue: number }
 export type ProductRow = { product_id: number; product_name: string; units_sold: number; revenue: number }
 export type InventoryRow = { product_id: number; product_name: string; current_stock: number; reserved_stock: number; reorder_level: number; low_stock: boolean }
+export type RefundReportRow = { refund_amount: number; refund_count: number; reason: string; reason_count: number; delivered_count: number; request_count: number; return_rate: number }
 type Period = 'today' | '7' | '30' | 'month' | 'custom'
 type InventoryState = 'all' | 'healthy' | 'low' | 'out'
 
@@ -31,15 +31,7 @@ function completeDailySeries(rows: SalesRow[], from: string, to: string) {
   }
   return result
 }
-function MiniSparkline({ values }: { values: number[] }) {
-  const safe = values.length > 1 ? values : [0, 0]
-  const max = Math.max(...safe, 1)
-  const points = safe.map((value, index) => `${(index / Math.max(1, safe.length - 1)) * 100},${28 - (value / max) * 24}`).join(' ')
-  return <svg className="report-sparkline" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><polyline points={points} fill="none" stroke="currentColor" strokeWidth="2" vectorEffect="non-scaling-stroke" /></svg>
-}
-
-export function ReportWorkspace({ initialData }: { initialData: { period: string; from: string; to: string; customFrom: string; customTo: string; sales: SalesRow[]; products: ProductRow[]; inventory: InventoryRow[]; error: string } }) {
-  const pathname = usePathname()
+export function ReportWorkspace({ initialData }: { initialData: { period: string; from: string; to: string; customFrom: string; customTo: string; sales: SalesRow[]; products: ProductRow[]; inventory: InventoryRow[]; refunds: RefundReportRow[]; error: string } }) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [period, setPeriod] = useState<Period>(initialData.period as Period)
@@ -52,6 +44,7 @@ export function ReportWorkspace({ initialData }: { initialData: { period: string
   const [sales, setSales] = useState<SalesRow[]>(initialData.sales)
   const [products, setProducts] = useState<ProductRow[]>(initialData.products)
   const [inventory, setInventory] = useState<InventoryRow[]>(initialData.inventory)
+  const [refunds, setRefunds] = useState<RefundReportRow[]>(initialData.refunds)
   const [error, setError] = useState(initialData.error)
   const [loading, setLoading] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(new Date())
@@ -81,10 +74,11 @@ export function ReportWorkspace({ initialData }: { initialData: { period: string
     setSales(initialData.sales)
     setProducts(initialData.products)
     setInventory(initialData.inventory)
+    setRefunds(initialData.refunds)
     setError(initialData.error)
     setLoading(false)
     setLastUpdated(new Date())
-  }, [initialData.period, initialData.customFrom, initialData.customTo, initialData.sales, initialData.products, initialData.inventory, initialData.error])
+  }, [initialData.period, initialData.customFrom, initialData.customTo, initialData.sales, initialData.products, initialData.inventory, initialData.refunds, initialData.error])
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const url = new URL(window.location.href)
@@ -110,14 +104,20 @@ export function ReportWorkspace({ initialData }: { initialData: { period: string
     const csv = rows.map(row => row.map(value => `"${value.replaceAll('"', '""')}"`).join(',')).join('\n')
     const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); link.download = `cartly-inventory-${dateKey(new Date())}.csv`; link.click(); URL.revokeObjectURL(link.href)
   }
-  const totalRevenue = sales.reduce((sum, row) => sum + Number(row.revenue), 0)
-  const totalOrders = sales.reduce((sum, row) => sum + Number(row.order_count), 0)
   const lowStockCount = inventory.filter(row => row.low_stock && row.current_stock > 0).length
   const outOfStockCount = inventory.filter(row => row.current_stock <= 0).length
   const chartData = completeDailySeries(sales, from, to)
   const rankedProducts = [...products].sort((a, b) => productMetric === 'revenue' ? Number(b.revenue) - Number(a.revenue) : Number(b.units_sold) - Number(a.units_sold))
   const shownProducts = rankedProducts.slice(0, showAllProducts ? rankedProducts.length : 5)
   const maxProductMetric = Math.max(...rankedProducts.map(item => Number(productMetric === 'revenue' ? item.revenue : item.units_sold)), 1)
+  const refundAmount = refunds.reduce((sum, row) => sum + Number(row.refund_amount), 0)
+  const refundCount = refunds.reduce((sum, row) => sum + Number(row.refund_count), 0)
+  const requestCount = refunds[0]?.request_count ?? 0
+  const deliveredCount = refunds[0]?.delivered_count ?? 0
+  const returnRate = refunds[0]?.return_rate ?? 0
+  const netRevenue = sales.reduce((sum, row) => sum + Number(row.revenue), 0)
+  const refundShare = netRevenue > 0 ? refundAmount / netRevenue * 100 : 0
+  const reasonRows = refunds.filter(row => Number(row.reason_count) > 0).sort((a, b) => Number(b.reason_count) - Number(a.reason_count))
 
   const filteredInventory = inventory.filter(row => {
     const matchesText = row.product_name.toLowerCase().includes(inventorySearch.trim().toLowerCase())
@@ -136,8 +136,6 @@ export function ReportWorkspace({ initialData }: { initialData: { period: string
   const dailyPageSize = 7
   const dailyPages = Math.max(1, Math.ceil(chartData.length / dailyPageSize))
   const dailyRows = [...chartData].sort((a, b) => b.day.localeCompare(a.day)).slice((dailyPage - 1) * dailyPageSize, dailyPage * dailyPageSize)
-  const inventoryHref = `${pathname.replace(/\/reports\/?$/, '')}/inventory?stock=low`
-
   const presets: Array<[Period, string]> = [['today', 'Today'], ['7', '7 days'], ['30', '30 days'], ['month', 'This month'], ['custom', 'Custom']]
   const action = <div className="report-header-controls">
     <div className="report-presets" role="group" aria-label="Report date presets">{presets.map(([value, label]) => <button key={value} className={period === value ? 'active' : ''} onClick={() => setPeriod(value)}>{label}</button>)}</div>
@@ -145,23 +143,8 @@ export function ReportWorkspace({ initialData }: { initialData: { period: string
     <button className="report-export-button" onClick={exportCsv} disabled={!sales.length}><Download size={15} />Export CSV</button>
     <div className="report-refresh-block"><button className="report-refresh-button" aria-label="Refresh reports" onClick={() => void load()}><RefreshCw size={16} /></button><span>Last updated {lastUpdated ? lastUpdated.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—'}</span></div>
   </div>
-  const kpis = [
-    { label: 'Revenue', value: money(totalRevenue), helper: 'Non-cancelled orders', icon: TrendingUp, spark: chartData.map(row => row.revenue) },
-    { label: 'Orders', value: totalOrders.toLocaleString('en-IN'), helper: 'Selected period', icon: ShoppingBag, spark: chartData.map(row => row.order_count) },
-    { label: 'Average order value', value: money(totalOrders ? totalRevenue / totalOrders : 0), helper: 'Revenue ÷ orders', icon: BarChart3, spark: chartData.map(row => row.order_count ? row.revenue / row.order_count : 0) },
-    { label: 'Low-stock items', value: lowStockCount.toLocaleString('en-IN'), helper: `${outOfStockCount} out of stock`, icon: TriangleAlert, spark: inventory.slice(0, 12).map(row => row.current_stock) },
-  ]
-
   return <AdminShell eyebrow="ANALYTICS" title="Report centre" description={dateDescription} action={action}>
     {error && <div className="report-error" role="alert"><span>{error}</span><button className="report-outline-button" onClick={() => void load()}>Retry</button></div>}
-    <section className="report-kpis" aria-label="Key performance indicators">
-      {loading ? Array.from({ length: 4 }, (_, index) => <div className="report-kpi report-kpi-skeleton" key={index}><i /><b /><span /></div>) : kpis.map(item => {
-        const lowStockCard = item.label === 'Low-stock items'
-        const noLowStockHistory = lowStockCard
-        const card = <article className={`report-kpi ${lowStockCard ? 'report-kpi-link-card' : ''}`}><div className="report-kpi-label"><span className="report-kpi-icon"><item.icon size={16} /></span><span>{item.label}</span><small>—</small></div><strong>{item.value}</strong><div className="report-kpi-bottom"><span>{item.helper}</span>{noLowStockHistory ? <span className="report-no-history">{lowStockCount === 0 ? 'No low-stock items' : 'Current snapshot · no history'}</span> : <MiniSparkline values={item.spark} />}</div><p className="report-kpi-compare">{compare ? '— no previous-period data' : 'Compared with previous period: —'}</p></article>
-        return lowStockCard ? <Link className="report-kpi-anchor" href={inventoryHref} key={item.label}>{card}</Link> : <div className="report-kpi-holder" key={item.label}>{card}</div>
-      })}
-    </section>
     <div className="report-compare-row"><label className="report-switch"><input type="checkbox" checked={compare} onChange={event => setCompare(event.target.checked)} /><span aria-hidden="true" /><b>Compare to previous period</b></label><span>Comparison metrics aren’t available from the current report data.</span></div>
 
     <div className="report-main-grid">
@@ -172,6 +155,8 @@ export function ReportWorkspace({ initialData }: { initialData: { period: string
         {loading ? <div className="report-list-skeleton">{Array.from({ length: 5 }, (_, i) => <i key={i} />)}</div> : shownProducts.length ? <div className="report-ranked-list">{shownProducts.map((row, index) => { const amount = Number(productMetric === 'revenue' ? row.revenue : row.units_sold); return <article className="report-ranked-product" key={row.product_id}><span className="report-rank">{index + 1}</span><span className="report-product-placeholder"><PackageSearch size={17} /></span><div className="report-product-info"><strong title={row.product_name}>{row.product_name}</strong><small>{row.units_sold} unit{Number(row.units_sold) === 1 ? '' : 's'} sold</small><span className="report-product-bar"><i style={{ width: `${Math.max(3, (amount / maxProductMetric) * 100)}%` }} /></span></div><strong className="report-product-value">{productMetric === 'revenue' ? money(Number(row.revenue)) : `${row.units_sold} unit${Number(row.units_sold) === 1 ? '' : 's'}`}</strong></article> })}{products.length > 5 && <button className="report-view-all" onClick={() => setShowAllProducts(value => !value)}>{showAllProducts ? 'Show top 5' : `View all ${products.length} products`}</button>}</div> : <div className="report-empty compact"><PackageSearch size={22} /><strong>No product sales in this period</strong></div>}
       </section>
     </div>
+
+    <section className="report-card refund-report-card" aria-label="Refund and return report"><div className="report-card-heading"><div><p className="eyebrow">RETURNS</p><h2>Refunds and return rate</h2><p>Based on the same net revenue used across reporting</p></div><span className="refund-report-range">{dateDescription}</span></div><div className="refund-report-kpis"><article><small>Refunded</small><strong>{money(refundAmount)}</strong></article><article><small>Refund count</small><strong>{refundCount}</strong></article><article><small>Refunds / net revenue</small><strong>{refundShare.toFixed(1)}%</strong></article><article><small>Return rate</small><strong>{(Number(returnRate) * 100).toFixed(1)}%</strong><span>{requestCount} requests / {deliveredCount} delivered orders</span></article></div><div className="refund-report-reasons"><strong>Return reasons</strong>{reasonRows.length ? reasonRows.map(row => <div key={row.reason}><span>{row.reason}</span><b>{row.reason_count}</b></div>) : <p>No return requests in this period.</p>}</div></section>
 
     <section className="report-card report-inventory-card"><div className="report-card-heading report-inventory-heading"><div><p className="eyebrow">STOCK HEALTH</p><h2>Inventory report</h2><p>{inventory.length} products · {lowStockCount} low stock · {outOfStockCount} out of stock</p></div><button className="report-outline-button" onClick={exportInventory} disabled={!filteredInventory.length}><Download size={14} />Export</button></div>
       <div className="report-inventory-toolbar"><label className="report-search"><PackageSearch size={16} /><input value={inventorySearch} onChange={event => { setInventorySearch(event.target.value); setInventoryPage(1) }} placeholder="Search products" aria-label="Search inventory" /></label><select value={inventoryFilter} aria-label="Filter inventory state" onChange={event => { setInventoryFilter(event.target.value as InventoryState); setInventoryPage(1) }}><option value="all">All states</option><option value="healthy">Healthy</option><option value="low">Low stock</option><option value="out">Out of stock</option></select><span className="report-filter-count">{filteredInventory.length} products</span></div>

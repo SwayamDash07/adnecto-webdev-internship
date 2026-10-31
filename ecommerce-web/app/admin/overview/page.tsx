@@ -13,11 +13,12 @@ export default async function AdminOverviewPage() {
   const recent = (recentRows ?? []).map((row: { order_id: number; customer_name: string; total: number; status: string; created_at: string; delivery_slot_start: string | null; delivery_slot_end: string | null }) => ({ id: row.order_id, customer: row.customer_name, total: row.total, status: row.status, created_at: row.created_at, delivery_slot_start: row.delivery_slot_start, delivery_slot_end: row.delivery_slot_end })) as Recent[]
   let lateOrders: LateOrder[] = []
   let lowStock: LowStock[] = []
-  let dataError = ordersError?.message ?? ''
+  let dataError = ''
+  if (ordersError) { console.error('[admin-overview] Failed to load orders:', ordersError.message); dataError = 'We couldn’t load some overview data. Please retry.' }
   if (profile?.role_name && can(profile.role_name, 'reports:view')) {
     const [stock, late] = await Promise.all([supabase.from('dashboard_low_stock').select('*').limit(8), supabase.rpc('admin_list_late_orders')])
-    if (stock.error) dataError ||= stock.error.message
-    if (late.error) dataError ||= late.error.message
+    if (stock.error) { console.error('[admin-overview] Failed to load stock:', stock.error.message); dataError ||= 'We couldn’t load some overview data. Please retry.' }
+    if (late.error) { console.error('[admin-overview] Failed to load late orders:', late.error.message); dataError ||= 'We couldn’t load some overview data. Please retry.' }
     lowStock = (stock.data ?? []) as LowStock[]
     lateOrders = (late.data ?? []).map((row: { order_id: number; customer_name: string; total: number; status: string; created_at: string; delivery_slot_start: string | null; delivery_slot_end: string | null; last_reminded_at: string | null; open_complaint_id: number | null }) => ({ id: row.order_id, customer: row.customer_name, total: row.total, status: row.status, created_at: row.created_at, delivery_slot_start: row.delivery_slot_start, delivery_slot_end: row.delivery_slot_end, last_reminded_at: row.last_reminded_at, open_complaint_id: row.open_complaint_id })) as LateOrder[]
   }

@@ -6,7 +6,7 @@ Cartly is a Next.js storefront and operations console backed by Supabase. The re
 
 1. Install Node.js 20+ and run `npm ci`.
 2. Copy `.env.local` to your local environment and set the public Supabase URL/key. Keep service-role and Razorpay secrets server-only.
-3. Apply SQL in this order with the Supabase CLI or SQL editor: `schema.sql`, `phase1_*`, `phase2_*`, `phase3_admin.sql`, `phase4_*`, `phase5_payments.sql`, then `segment1_security.sql` through `segment8_release.sql`.
+3. Read [the Supabase SQL guide](supabase/README.md) before applying database scripts. The repository contains historical migrations, setup scripts, seeds, and maintenance SQL; do not run every SQL file against an existing project.
 4. Run `npm run dev`.
 
 Required production secrets are `SUPABASE_SERVICE_ROLE_KEY`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, and `TURNSTILE_SECRET_KEY`. The browser only receives `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_RAZORPAY_KEY_ID`, and optionally `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. Payment and CAPTCHA routes return a configuration error when their server secret is missing.

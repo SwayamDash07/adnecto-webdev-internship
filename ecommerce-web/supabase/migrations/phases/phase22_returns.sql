@@ -4,7 +4,7 @@ update public.products p set is_returnable=false where
  lower(coalesce((select c.name from public.categories c where c.id=p.category_id),'')) ~ '(grocer|dairy|produce|fresh|meat|seafood|bakery|frozen)' 
  or lower(p.name) ~ '(milk|atta|curd|yogurt|paneer|cheese|butter|egg|vegetable|fruit|meat|fish|chicken|bread|cream)';
 -- Keep the demo catalog rerunnable with a product-level returnability flag.
-update public.products set is_returnable=false where id=9 or lower(name) like '%atta%' or lower(name) like '%milk%';
+update public.products set is_returnable=false where lower(name) like '%atta%' or lower(name) like '%milk%';
 alter table public.refunds add column if not exists type text not null default 'refund_only';
 alter table public.refunds add column if not exists pickup_slot text;
 alter table public.refunds add column if not exists pickup_address_id bigint references public.addresses(id);

@@ -10,7 +10,7 @@ import { Can } from '@/lib/use-can'
 import { ArrowDownRight, ArrowUpRight, RefreshCw, Search, X } from 'lucide-react'
 import { getInventoryAdjustmentPage } from '@/app/admin/inventory/actions'
 
-export type InventoryItem = { product_id: number; product_name: string; sku: string | null; current_stock: number; reserved_stock: number; reorder_level: number }
+export type InventoryItem = { product_id: number; product_name: string; sku: string | null; current_stock: number; reserved_stock: number; reorder_level: number; is_returnable: boolean }
 export type AdjustmentLogRow = { adjustment_id: number; created_at: string; product_name: string; sku: string | null; warehouse: string; quantity_change: number; reason: string; done_by: string }
 type StateFilter = 'all' | 'healthy' | 'low' | 'out'
 type InventoryTab = 'Stock' | 'Adjustment log'
@@ -52,6 +52,8 @@ export function InventoryManager({ initialItems, initialLog, initialFilters, ini
   const [logHasMore, setLogHasMore] = useState(initialLog.length === PAGE_SIZE)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [savingReturnability, setSavingReturnability] = useState<number | null>(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const [confirmLarge, setConfirmLarge] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
@@ -102,10 +104,19 @@ export function InventoryManager({ initialItems, initialLog, initialFilters, ini
 
   function selectState(next: StateFilter) { setStateFilter(next); setStockFilter(false); setPage(1) }
   function startAdjust(item: InventoryItem) {
-    setAdjustment(current => ({ ...current, product: item.product_name }))
-    setTab('Stock')
-    document.getElementById('inventory-adjustment-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    setError(''); setMessage(''); setOtherNote(''); setDirection('add'); setConfirmLarge(false)
+    setAdjustment(current => ({ ...current, product: item.product_name, quantity: '', reason: 'Stock correction' }))
+    setDrawerOpen(true)
   }
+  const closeDrawer = useCallback(() => { setDrawerOpen(false); setConfirmLarge(false); setError(''); setMessage('') }, [])
+
+  useEffect(() => {
+    if (!drawerOpen) return
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape' && !confirmLarge) closeDrawer() }
+    document.addEventListener('keydown', onKeyDown)
+    document.body.style.overflow = 'hidden'
+    return () => { document.removeEventListener('keydown', onKeyDown); document.body.style.overflow = '' }
+  }, [drawerOpen, confirmLarge, closeDrawer])
   async function saveAdjustment(skipConfirmation = false) {
     setError(''); setMessage('')
     const item = items.find(entry => entry.product_name === adjustment.product)
@@ -120,9 +131,32 @@ export function InventoryManager({ initialItems, initialLog, initialFilters, ini
     try {
       const { error: updateError } = await client.rpc('admin_adjust_inventory_with_batch', { p_product_id: item.product_id, p_delta: delta, p_reason: adjustment.reason === 'Other' ? `Other: ${otherNote.trim()}` : adjustment.reason, p_batch_number: null, p_expiry_date: null })
       if (updateError) { logInventoryError('admin_adjust_inventory_with_batch', updateError); setError('We could not save this stock adjustment. Please try again.') }
-      else { setMessage('Inventory updated successfully.'); setAdjustment(current => ({ ...current, quantity: '' })); setOtherNote(''); setConfirmLarge(false); load() }
+      else { setMessage('Inventory updated successfully.'); setAdjustment(current => ({ ...current, quantity: '' })); setOtherNote(''); setConfirmLarge(false); setDrawerOpen(false); load() }
     } catch (error) { logInventoryError('admin_adjust_inventory_with_batch', error); setError('We could not save this stock adjustment. Please try again.') }
     finally { setSaving(false) }
+  }
+
+  async function toggleReturnability(item: InventoryItem) {
+    if (savingReturnability !== null) return
+    setError('')
+    setMessage('')
+    setSavingReturnability(item.product_id)
+    const client = createSupabaseBrowserClient()
+    if (!client) { setError('The inventory service is unavailable. Please try again.'); setSavingReturnability(null); return }
+    const nextValue = !item.is_returnable
+    try {
+      const { error: updateError } = await client.rpc('admin_set_product_returnability', { p_product_id: item.product_id, p_is_returnable: nextValue })
+      if (updateError) {
+        logInventoryError('admin_set_product_returnability', updateError)
+        setError(isPermissionError(updateError) ? 'You do not have permission to change product returnability.' : 'We could not update this product’s return setting. Please try again.')
+      } else {
+        setMessage(`${item.product_name} is now ${nextValue ? 'returnable' : 'not returnable'}.`)
+        load()
+      }
+    } catch (error) {
+      logInventoryError('admin_set_product_returnability', error)
+      setError('We could not update this product’s return setting. Please try again.')
+    } finally { setSavingReturnability(null) }
   }
 
   return <AdminShell title="Inventory controls" description="Review stock levels and record adjustments.">
@@ -136,28 +170,31 @@ export function InventoryManager({ initialItems, initialLog, initialFilters, ini
       <nav className="inv-tabs" role="tablist" aria-label="Inventory sections"><button type="button" role="tab" aria-selected={tab === 'Stock'} className={tab === 'Stock' ? 'active' : ''} onClick={() => setTab('Stock')}>Stock</button><button type="button" role="tab" aria-selected={tab === 'Adjustment log'} className={tab === 'Adjustment log' ? 'active' : ''} onClick={() => setTab('Adjustment log')}>Adjustment log</button></nav>
 
       {tab === 'Stock' ? <div className="inv-stock-layout">
-        <Can permission="inventory:adjust" fallback={<section className="panel inv-form-card inv-readonly"><span className="inv-readonly-mark">Read only</span><h3>Stock adjustment</h3><p>Your role can view inventory but cannot change stock.</p></section>}>
-          <section className="panel inv-form-card" id="inventory-adjustment-form">
-            <div className="inv-section-title"><div><h3>Stock adjustment</h3><p>Every change is recorded in the inventory audit.</p></div></div>
-            <div className="inv-form-fields">
-              <label className="inv-field inv-field-wide">Product
-                <input list="inv-product-options" value={adjustment.product} onChange={event => setAdjustment({ ...adjustment, product: event.target.value })} placeholder="Search by product or SKU" autoComplete="off" />
-                <datalist id="inv-product-options">{items.map(item => <option key={item.product_id} value={item.product_name}>{item.sku || 'No SKU'} · {item.current_stock} in stock</option>)}</datalist>
-                {selectedProduct && <small>SKU {selectedProduct.sku || '—'} · {selectedProduct.current_stock} on hand · {selectedProduct.reserved_stock} reserved</small>}
-              </label>
-              <label className="inv-field">Warehouse<select value={adjustment.warehouse} onChange={event => setAdjustment({ ...adjustment, warehouse: event.target.value })}><option>Mumbai Central</option><option>Bengaluru South</option><option>Delhi NCR</option></select></label>
-              <fieldset className="inv-direction"><legend>Adjustment</legend><div><button type="button" className={direction === 'add' ? 'active' : ''} onClick={() => setDirection('add')}>Add</button><button type="button" className={direction === 'remove' ? 'active' : ''} onClick={() => setDirection('remove')}>Remove</button></div></fieldset>
-              <label className="inv-field">Quantity <div className="inv-quantity"><button type="button" aria-label="Decrease quantity" onClick={() => setAdjustment(current => ({ ...current, quantity: String(Math.max(1, Number(current.quantity || 1) - 1)) }))}>−</button><input type="number" min="1" step="1" value={adjustment.quantity} onChange={event => setAdjustment({ ...adjustment, quantity: event.target.value })} placeholder="0" /><button type="button" aria-label="Increase quantity" onClick={() => setAdjustment(current => ({ ...current, quantity: String(Number(current.quantity || 0) + 1) }))}>+</button></div>{selectedProduct && <small className="inv-preview">Current {selectedProduct.current_stock} <b>→</b> New {Math.max(0, resultingStock ?? selectedProduct.current_stock)}</small>}</label>
-              <label className="inv-field">Reason<select value={adjustment.reason} onChange={event => setAdjustment({ ...adjustment, reason: event.target.value })}><option>Stock correction</option><option>Damaged</option><option>Expired</option><option>Returned</option><option>Received</option><option>Other</option><option>Wastage</option><option>Damaged goods</option><option>Stock transfer</option></select></label>
-              {adjustment.reason === 'Other' && <label className="inv-field inv-field-wide">Note<input value={otherNote} onChange={event => setOtherNote(event.target.value)} placeholder="Add a reason for this adjustment" required /></label>}
-            </div>
-            <div className="inv-form-actions"><button className="secondary-button" type="button" onClick={() => { setError(''); setMessage(''); setOtherNote(''); setAdjustment({ product: '', warehouse: 'Mumbai Central', quantity: '', reason: 'Stock correction' }); setDirection('add') }}>Clear</button><button className="primary-button" type="button" disabled={saving} onClick={() => void saveAdjustment()}>{saving ? 'Saving…' : 'Save adjustment'}</button></div>
-            {error && <p className="inv-feedback error" role="alert">{error}</p>}{message && <p className="inv-feedback success" role="status">{message}</p>}
-          </section>
-        </Can>
         <InventoryTable loading={loading} error={error} items={pageItems} total={visibleItems.length} page={page} pageCount={pageCount} pageSize={pageSize} setPageSize={value => { setPageSize(value); setPage(1) }} query={query} setQuery={value => { setQuery(value); setPage(1) }} sort={sort} setSort={value => { setSort(value); setPage(1) }} stateFilter={stateFilter} setStateFilter={selectState} lastUpdated={lastUpdated} onRefresh={() => void load()} onRetry={() => void load()} onAdjust={startAdjust} onPage={setPage} />
       </div> : <AdjustmentLog rows={adjustmentLog} loading={logLoading} loadingMore={logLoadingMore} hasMore={logHasMore} error={logError} search={logSearchDraft} onSearchChange={setLogSearchDraft} onRetry={() => void loadAdjustmentLog(0, false, logSearch)} onLoadMore={() => void loadAdjustmentLog(adjustmentLog.length, true, logSearch)} />}
 
+      {drawerOpen && selectedProduct && <div className="inv-drawer-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) closeDrawer() }}><aside className="inv-drawer" role="dialog" aria-modal="true" aria-labelledby="inv-drawer-title">
+        <header><div><small>INVENTORY MANAGEMENT</small><h2 id="inv-drawer-title">{selectedProduct.product_name}</h2><p>SKU {selectedProduct.sku || '—'} · {selectedProduct.current_stock} on hand · {selectedProduct.reserved_stock} reserved</p></div><button type="button" className="inv-drawer-close" aria-label="Close inventory panel" onClick={closeDrawer}><X size={18} /></button></header>
+        <div className="inv-drawer-body">
+          <Can permission="products:edit" fallback={<section className="inv-drawer-card"><h3>Return policy</h3><span className={`inv-return-status ${selectedProduct.is_returnable ? 'enabled' : 'disabled'}`}>{selectedProduct.is_returnable ? 'Returnable' : 'Not returnable'}</span></section>}>
+            <section className="inv-drawer-card"><div><h3>Return policy</h3><p>Choose whether customers can return this product.</p></div><button type="button" role="switch" aria-checked={selectedProduct.is_returnable} aria-label={`${selectedProduct.product_name}: ${selectedProduct.is_returnable ? 'returnable' : 'not returnable'}`} className={`inv-return-toggle ${selectedProduct.is_returnable ? 'enabled' : 'disabled'}`} disabled={savingReturnability !== null} onClick={() => void toggleReturnability(selectedProduct)}>{savingReturnability === selectedProduct.product_id ? 'Saving…' : selectedProduct.is_returnable ? 'Returnable' : 'Not returnable'}</button></section>
+          </Can>
+          <Can permission="inventory:adjust" fallback={<section className="panel inv-form-card inv-readonly"><span className="inv-readonly-mark">Read only</span><h3>Stock adjustment</h3><p>Your role can view inventory but cannot change stock.</p></section>}>
+            <section className="panel inv-form-card">
+              <div className="inv-section-title"><div><h3>Stock adjustment</h3><p>Every change is recorded in the inventory audit.</p></div></div>
+              <div className="inv-form-fields">
+                <label className="inv-field">Warehouse<select value={adjustment.warehouse} onChange={event => setAdjustment({ ...adjustment, warehouse: event.target.value })}><option>Mumbai Central</option><option>Bengaluru South</option><option>Delhi NCR</option></select></label>
+                <fieldset className="inv-direction"><legend>Adjustment</legend><div><button type="button" className={direction === 'add' ? 'active' : ''} onClick={() => setDirection('add')}>Add</button><button type="button" className={direction === 'remove' ? 'active' : ''} onClick={() => setDirection('remove')}>Remove</button></div></fieldset>
+                <label className="inv-field inv-field-wide">Quantity <div className="inv-quantity"><button type="button" aria-label="Decrease quantity" onClick={() => setAdjustment(current => ({ ...current, quantity: String(Math.max(1, Number(current.quantity || 1) - 1)) }))}>−</button><input type="number" min="1" step="1" value={adjustment.quantity} onChange={event => setAdjustment({ ...adjustment, quantity: event.target.value })} placeholder="0" /><button type="button" aria-label="Increase quantity" onClick={() => setAdjustment(current => ({ ...current, quantity: String(Number(current.quantity || 0) + 1) }))}>+</button></div><small className="inv-preview">Current {selectedProduct.current_stock} <b>→</b> New {Math.max(0, resultingStock ?? selectedProduct.current_stock)}</small></label>
+                <label className="inv-field inv-field-wide">Reason<select value={adjustment.reason} onChange={event => setAdjustment({ ...adjustment, reason: event.target.value })}><option>Stock correction</option><option>Damaged</option><option>Expired</option><option>Returned</option><option>Received</option><option>Other</option><option>Wastage</option><option>Damaged goods</option><option>Stock transfer</option></select></label>
+                {adjustment.reason === 'Other' && <label className="inv-field inv-field-wide">Note<input value={otherNote} onChange={event => setOtherNote(event.target.value)} placeholder="Add a reason for this adjustment" required /></label>}
+              </div>
+              <div className="inv-form-actions"><button className="secondary-button" type="button" onClick={() => { setError(''); setMessage(''); setOtherNote(''); setAdjustment(current => ({ ...current, quantity: '', reason: 'Stock correction' })); setDirection('add') }}>Clear</button><button className="primary-button" type="button" disabled={saving} onClick={() => void saveAdjustment()}>{saving ? 'Saving…' : 'Save adjustment'}</button></div>
+              {error && <p className="inv-feedback error" role="alert">{error}</p>}{message && <p className="inv-feedback success" role="status">{message}</p>}
+            </section>
+          </Can>
+        </div>
+      </aside></div>}
       {confirmLarge && <div className="inv-modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setConfirmLarge(false) }}><section className="inv-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="inv-confirm-title"><h3 id="inv-confirm-title">Confirm large adjustment</h3><p>You’re about to {direction} <strong>{requestedQuantity}</strong> units of <strong>{selectedProduct?.product_name}</strong>.</p><div className="inv-confirm-summary"><span>Current stock <b>{selectedProduct?.current_stock}</b></span><span>New stock <b>{resultingStock}</b></span><span>Reason <b>{adjustment.reason}</b></span></div><div className="inv-form-actions"><button className="secondary-button" onClick={() => setConfirmLarge(false)}>Cancel</button><button className="primary-button" disabled={saving} onClick={() => void saveAdjustment(true)}>{saving ? 'Saving…' : 'Confirm adjustment'}</button></div></section></div>}
     </div>
   </AdminShell>

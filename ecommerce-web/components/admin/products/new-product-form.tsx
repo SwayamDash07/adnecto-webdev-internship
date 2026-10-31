@@ -35,7 +35,7 @@ export function NewProductForm({ initialValues, categories, brands, gstOptions, 
     return () => window.removeEventListener('beforeunload', handler)
   }, [dirty])
 
-  function update(key: keyof ProductForm, value: string) {
+  function update(key: keyof ProductForm, value: string | boolean) {
     setForm(current => ({ ...current, [key]: value }))
     setErrors(current => ({ ...current, [key]: undefined }))
     setClientError('')
@@ -74,7 +74,7 @@ export function NewProductForm({ initialValues, categories, brands, gstOptions, 
 
   return <>
     <form className="product-create-form" action={formAction} onSubmit={handleSubmit} noValidate>
-      <ProductFormFields form={form} update={update} image={image} setImage={setImage} errors={{ ...actionState.fieldErrors, ...errors }} categories={categories} brands={brands} gstOptions={gstOptions} validateField={key => { const issue = validate(key); setErrors(current => ({ ...current, [key]: issue || undefined })) }} />
+      <ProductFormFields form={form} update={update} image={image} setImage={setImage} errors={{ ...actionState.fieldErrors, ...errors }} categories={categories} brands={brands} gstOptions={gstOptions} showReturnability validateField={key => { const issue = validate(key); setErrors(current => ({ ...current, [key]: issue || undefined })) }} />
       {(clientError || (!hideActionError && actionState.error)) && <div className="product-error" role="alert">{clientError || actionState.error}</div>}
       <div className="product-sticky-footer">
         <button type="button" className="secondary-button" disabled={pending} onClick={() => dirty ? setShowLeave(true) : router.push(productsHref)}>Cancel</button>

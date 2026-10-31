@@ -8,6 +8,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { money } from "@/lib/formatters";
 import { formatDeliverySlot } from "@/lib/delivery-slot";
 import { useIstNow } from "@/hooks/use-ist-now";
+import type { ReactNode } from "react";
 import {
   ArrowDownWideNarrow,
   ArrowUpRight,
@@ -37,6 +38,7 @@ export type FulfilmentOrder = {
   delivery_instructions?: string | null;
   contactless_delivery?: boolean | null;
   substitute_unavailable?: boolean | null;
+  delivery_speed?: string | null;
 };
 type SortMode = "urgent" | "oldest" | "slot";
 type TaskState =
@@ -99,7 +101,7 @@ function lateBy(order: FulfilmentOrder, now: Date) {
   return `Late by ${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 }
 
-export function FulfilmentQueue({ queue, initialOrders, initialError, initialFilters }: { queue: Queue; initialOrders: FulfilmentOrder[]; initialError: string; initialFilters: { search: string; status: string; sort: string } }) {
+export function FulfilmentQueue({ queue, initialOrders, initialError, initialFilters, extraContent }: { queue: Queue; initialOrders: FulfilmentOrder[]; initialError: string; initialFilters: { search: string; status: string; sort: string }; extraContent?: ReactNode }) {
   const now = useIstNow();
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -555,6 +557,7 @@ export function FulfilmentQueue({ queue, initialOrders, initialError, initialFil
             </div>
           )}
         </section>
+        {extraContent}
       </main>
 
       {selectedOrder && (
@@ -799,6 +802,7 @@ function OrderTaskCard({
               {formatDeliverySlot(order, now).display}
             </span>
           )}
+          {order.delivery_speed === "express" && <span className="express-order-chip">Express</span>}
           <span>
             <Package size={12} />
             {order.item_count} {order.item_count === 1 ? "item" : "items"}
@@ -857,7 +861,6 @@ function OrderDetailDrawer({
   const customerInstructions = order.delivery_instructions?.trim() ?? "";
   const customerPreferences = [
     order.contactless_delivery && "Contactless delivery requested",
-    order.substitute_unavailable && "Do not substitute unavailable items",
   ].filter(Boolean) as string[];
   return (
     <div
@@ -875,7 +878,7 @@ function OrderDetailDrawer({
         <header>
           <div>
             <small>ORDER DETAILS</small>
-            <h2 id="fulfilment-drawer-title">Order #{order.order_id}</h2>
+            <h2 id="fulfilment-drawer-title">Order #{order.order_id} {order.delivery_speed === "express" && <span className="express-order-chip">Express</span>}</h2>
           </div>
           <button
             className="task-icon-button"

@@ -7,3 +7,6 @@ export const SUPPORT_CONTACT = {
 } as const
 
 export const FREE_DELIVERY_THRESHOLD = 1000
+export const STANDARD_DELIVERY_FEE = 49
+export const PACKAGING_FEE = 19
+export const EXPRESS_DELIVERY_FEE = 49

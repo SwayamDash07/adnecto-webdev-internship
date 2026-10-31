@@ -19,6 +19,7 @@ const productSchema = z.object({
   gst: z.enum(['0', '5', '12', '18', '28']),
   hsn: z.string().trim(),
   stock: z.string().trim().refine(value => value === '' || (Number.isFinite(Number(value)) && Number(value) >= 0)),
+  is_returnable: z.boolean(),
 }).superRefine((value, context) => {
   if (Number(value.price) > Number(value.mrp)) context.addIssue({ code: 'custom', path: ['price'], message: 'Selling price must not exceed MRP.' })
 })
@@ -41,6 +42,7 @@ function readFields(formData: FormData) {
     gst: String(formData.get('gst') ?? '5'),
     hsn: String(formData.get('hsn') ?? ''),
     stock: String(formData.get('stock') ?? '0'),
+    is_returnable: formData.get('is_returnable') === 'on',
   }
 }
 
@@ -71,8 +73,7 @@ export async function createProductAction(_previous: ProductActionState, formDat
   }
 
   const supabase = await createSupabaseServerClient()
-  const { data: productId, error } = await supabase.rpc('admin_upsert_product', {
-    p_product_id: null,
+  const { data: productId, error } = await supabase.rpc('admin_create_product_with_returnability', {
     p_name: parsed.data.name,
     p_sku: parsed.data.sku || null,
     p_barcode: parsed.data.barcode || null,
@@ -84,6 +85,7 @@ export async function createProductAction(_previous: ProductActionState, formDat
     p_gst: Number(parsed.data.gst),
     p_hsn: parsed.data.hsn || null,
     p_stock: Number(parsed.data.stock || 0),
+    p_is_returnable: parsed.data.is_returnable,
   })
   if (error || !productId) return { error: 'Could not create the product. Check the details and try again.' }
 
