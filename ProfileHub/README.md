@@ -1,43 +1,51 @@
-# ProfileHub
+# Cartly Hypermarket
 
-A personal profile dashboard built with **Next.js (App Router)**, **MongoDB/Mongoose**, and **Server Actions only** — no API routes, no client-side `fetch`. Built during my internship at Adnecto Technologies.
+A full-stack online marketplace built with **Next.js**, **Supabase**, and **Razorpay test mode** during my internship at Adnecto Technologies.
 
-Live URL- https://profile-hub-ivory.vercel.app/
+Live URL — https://cartly-mu-livid.vercel.app/  
+Admin sign-in — https://cartly-mu-livid.vercel.app/auth/admin-sign-in
 
 ## What it is
 
-Signup/login system plus a LinkedIn/GitHub-style profile dashboard where users edit their own bio, skills, experience, education, and projects. Started as an admin dashboard, pivoted to a personal-profile format per supervisor feedback.
+Cartly is an online hypermarket with separate customer and admin experiences. Customers can browse products, manage their cart, check out, track orders, and request eligible returns, refunds, or exchanges. Admins can manage products, inventory, orders, delivery, and return requests through an operations portal.
 
 ## Stack
 
-- **Next.js 16** — App Router, Server Components + Server Actions
-- **MongoDB/Mongoose** — data storage
-- **bcryptjs** — password hashing
-- Plain CSS with custom properties for light/dark theming
+- **Next.js 15** — App Router, React Server Components, Server Actions, and API routes
+- **TypeScript** — application and data types
+- **Supabase** — authentication, PostgreSQL database, storage, and realtime updates
+- **Razorpay** — test-mode checkout and refunds
+- **CSS and Tailwind CSS** — responsive interfaces
 - Hosted on Vercel
 
 ## Key decisions
 
-**Server Actions only** — every form (login, signup, profile edits, password change) submits via `<form action={serverFunction}>`. No `/api/*` routes anywhere. UI toggles (edit mode, nav menu) run through URL params or CSS `:checked` selectors instead of React state. Only exception: CSS hover/load animations, which are inherently browser-side.
+**Supabase-backed authentication** — customer and admin accounts use Supabase Auth. Server-side checks and role-based permissions protect operations pages and actions.
 
-**Sessions** — a random token (`crypto.randomBytes`) is stored on the user's MongoDB document and sent to the browser as an `httpOnly` cookie. Each request checks whether a user in the database matches that token.
+**Database workflows** — SQL functions and migrations handle important operations such as order transitions, inventory updates, and returns. Keeping those rules close to the database helps maintain consistent state across the app.
 
-**Route protection, two layers** — middleware blocks `/dashboard/*` with no session cookie; `requireUser()` then confirms the cookie's token matches a real user in the DB.
+**Separate customer and operations flows** — the storefront supports shopping and order tracking, while the admin portal brings product, inventory, fulfillment, delivery, and returns tools together.
+
+**Test-mode payments** — Razorpay checkout and refund requests are connected through server-side routes. The integration uses test mode, so it does not move live money.
 
 ## Features
 
-- Signup with server-side validation (10-digit phone, `@gmail.com` only, DOB can't be future, unique username/email)
-- Profile dashboard: bio, skills, experience — plus optional Education/Projects sections (LinkedIn-style, hidden until populated)
-- Settings: edit personal info, change password (requires current password verified via `bcrypt.compare`)
-- Light/dark theme via cookie + CSS variables, no JS
+- Product catalog, search, product details, and cart
+- Customer registration, sign-in, saved addresses, and order tracking
+- Checkout with Razorpay test-mode payments
+- Admin product and inventory management, including returnability settings
+- Order picking, packing, and delivery workflows
+- Return, refund, and exchange requests with pickup tracking
+- Admin review and processing for refunds and exchanges
 
 ## What I learned
 
-- Server Actions vs. API routes, and the tradeoffs of going fully server-first
-- Mongoose schema defaults only apply on document creation, and a running dev server caches the compiled model (had to restart it more than once after schema changes)
-- Debugging via `console.log` + reading server output — caught a duplicated function, a wrong DB name, and a stale model this way
-- CSS-only interactivity (checkbox/label nav menu) and browser quirks with animating native `<details>`
-- Responsive layout fixes — why a fixed grid breaks on mobile, rebuilt as a stacked layout
+- Connecting server-rendered pages and client interactions to a shared database
+- Designing role-based access for customer, admin, picker, and delivery workflows
+- Keeping order, inventory, payment, and return states consistent
+- Integrating a payment provider through server-side endpoints
+- Organizing a larger app into focused pages, components, server actions, API routes, and SQL scripts
+- Debugging issues across the browser, Next.js server, Supabase, and external services
 
 ## Running locally
 
@@ -45,10 +53,20 @@ Signup/login system plus a LinkedIn/GitHub-style profile dashboard where users e
 npm install
 ```
 
-`.env.local`:
+Create a `.env.local` file with the Supabase and Razorpay environment variables:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+NEXT_PUBLIC_RAZORPAY_KEY_ID=
+RAZORPAY_KEY_SECRET=
+RAZORPAY_WEBHOOK_SECRET=
+ADMIN_ROUTE_TOKEN=
+NEXT_PUBLIC_ADMIN_ROUTE_TOKEN=
 ```
-MONGODB_URI=mongodb://localhost:27017/authApp
-```
+
+Keep server secrets private. Use Razorpay test credentials for local development.
 
 ```bash
 npm run dev
